@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/auth_service.dart';
+import '../home/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,7 +19,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
 
   static const Color _primary = Color(0xFF0057B8);
-  static const Color _primaryLight = Color(0xFFE8F0FB);
 
   @override
   void dispose() {
@@ -36,27 +38,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
       setState(() => _isLoading = false);
 
-      if (!mounted) return;
-
       if (result['success']) {
-        Navigator.pushReplacementNamed(context, '/home');
+        context.read<AuthProvider>().setAuth(
+              result['token'],
+              result['user'],
+            );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(children: [
-              const Icon(Icons.error_outline, color: Colors.white, size: 18),
-              const SizedBox(width: 8),
-              Expanded(child: Text(result['message'])),
-            ]),
-            backgroundColor: const Color(0xFFC62828),
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            content: Text(result['message']),
+            backgroundColor: Colors.red,
           ),
         );
       }
     }
-  }
+  }  // ← esta llave faltaba
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +82,6 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ── Header azul ──
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(24, 36, 24, 28),
@@ -126,8 +125,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-
-                  // ── Formulario ──
                   Padding(
                     padding: const EdgeInsets.all(24),
                     child: Form(
@@ -141,7 +138,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _usuarioController,
                             hint: 'Ingresa tu usuario',
                             icon: Icons.person_outline,
-                            isFocused: true,
                             validator: (v) =>
                                 v == null || v.isEmpty ? 'Campo requerido' : null,
                           ),
@@ -161,15 +157,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 size: 18,
                                 color: Colors.grey,
                               ),
-                              onPressed: () =>
-                                  setState(() => _obscurePassword = !_obscurePassword),
+                              onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword),
                             ),
                             validator: (v) =>
                                 v == null || v.isEmpty ? 'Campo requerido' : null,
                           ),
                           const SizedBox(height: 24),
-
-                          // ── Botón ──
                           SizedBox(
                             width: double.infinity,
                             height: 50,
@@ -178,7 +172,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _primary,
                                 foregroundColor: Colors.white,
-                                disabledBackgroundColor: _primary.withOpacity(0.6),
+                                disabledBackgroundColor:
+                                    _primary.withOpacity(0.6),
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
@@ -198,7 +193,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.3,
                                       ),
                                     ),
                             ),
@@ -207,7 +201,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           const Center(
                             child: Text(
                               '© 2025 SEDA Cusco',
-                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                           ),
                         ],
@@ -238,7 +233,6 @@ class _LoginScreenState extends State<LoginScreen> {
     required String hint,
     required IconData icon,
     bool obscure = false,
-    bool isFocused = false,
     Widget? suffix,
     String? Function(String?)? validator,
   }) {
@@ -250,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
-        prefixIcon: Icon(icon, size: 18, color: isFocused ? _primary : Colors.grey),
+        prefixIcon: Icon(icon, size: 18, color: Colors.grey),
         suffixIcon: suffix,
         filled: true,
         fillColor: const Color(0xFFF5F7FA),

@@ -1,226 +1,179 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../core/theme.dart';
+import '../../models/estacion_model.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/estacion_service.dart';
+import '../../screens/login/login_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
-  static const Color _primary = Color(0xFF0057B8);
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
-  final List<Map<String, dynamic>> _estaciones = const [
-    {
-      'nombre': 'Estación 1',
-      'descripcion': 'Descripción de la estación',
-      'icono': Icons.water_outlined,
-      'color': Color(0xFF0057B8),
-      'ruta': '/formulario',
-      'id': 1,
-    },
-    {
-      'nombre': 'Estación 2',
-      'descripcion': 'Descripción de la estación',
-      'icono': Icons.speed_outlined,
-      'color': Color(0xFF1D9E75),
-      'ruta': '/formulario',
-      'id': 2,
-    },
-    {
-      'nombre': 'Estación 3',
-      'descripcion': 'Descripción de la estación',
-      'icono': Icons.compress_outlined,
-      'color': Color(0xFF7F77DD),
-      'ruta': '/formulario',
-      'id': 3,
-    },
-    {
-      'nombre': 'Estación 4',
-      'descripcion': 'Descripción de la estación',
-      'icono': Icons.science_outlined,
-      'color': Color(0xFFBA7517),
-      'ruta': '/formulario',
-      'id': 4,
-    },
-  ];
+class _HomeScreenState extends State<HomeScreen> {
+  List<EstacionModel> _estaciones = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarEstaciones();
+  }
+
+  Future<void> _cargarEstaciones() async {
+    final token = context.read<AuthProvider>().token!;
+    final estaciones = await EstacionService.getEstaciones(token);
+    setState(() {
+      _estaciones = estaciones;
+      _isLoading = false;
+    });
+  }
+
+  void _logout() {
+    context.read<AuthProvider>().logout();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final user = context.read<AuthProvider>().user!;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4FA),
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: _primary,
-        elevation: 0,
+        backgroundColor: AppTheme.primaryColor,
         title: const Text(
           'SEDA Cusco',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () => _confirmarLogout(context),
+            onPressed: _logout,
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            const Text(
-              'Selecciona una estación',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A2E),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Elige la estación para registrar datos',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 1.1,
-                ),
-                itemCount: _estaciones.length,
-                itemBuilder: (context, index) {
-                  final estacion = _estaciones[index];
-                  return _EstacionCard(
-                    nombre: estacion['nombre'],
-                    descripcion: estacion['descripcion'],
-                    icono: estacion['icono'],
-                    color: estacion['color'],
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      estacion['ruta'],
-                      arguments: {
-                        'estacionId': estacion['id'],
-                        'estacionNombre': estacion['nombre'],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bienvenido, ${user.nombreCompleto}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Selecciona una estación',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const Text(
+                    'Elige la estación para registrar datos',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 0.85,
+                      ),
+                      itemCount: _estaciones.length,
+                      itemBuilder: (context, index) {
+                        final estacion = _estaciones[index];
+                        return _EstacionCard(estacion: estacion);
                       },
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _confirmarLogout(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Estás seguro que deseas salir?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _primary,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pushReplacementNamed(context, '/login');
-            },
-            child: const Text('Salir',
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 }
 
 class _EstacionCard extends StatelessWidget {
-  final String nombre;
-  final String descripcion;
-  final IconData icono;
-  final Color color;
-  final VoidCallback onTap;
+  final EstacionModel estacion;
 
-  const _EstacionCard({
-    required this.nombre,
-    required this.descripcion,
-    required this.icono,
-    required this.color,
-    required this.onTap,
-  });
+  const _EstacionCard({required this.estacion});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        // Navegación al formulario (siguiente paso)
+      },
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icono, color: color, size: 22),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    nombre,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A2E),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    descripcion,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[500],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+              child: const Icon(
+                Icons.water,
+                color: AppTheme.primaryColor,
+                size: 28,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              estacion.nombre,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${estacion.bombas.length} bombas · ${estacion.activos.length} activos',
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+            if (estacion.ultimoTotalizador != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Tot: ${estacion.ultimoTotalizador} m³',
+                style: const TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
-          ),
+          ],
         ),
       ),
     );

@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../models/user_model.dart';
 
 class AuthService {
   static const String _baseUrl = 'http://localhost:3000';
 
-  static Future<Map<String, dynamic>> login(String username, String password) async {
+  static Future<Map<String, dynamic>> login(
+      String username, String password) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/auth/login'),
@@ -18,15 +20,22 @@ class AuthService {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return {'success': true, 'data': data};
+        return {
+          'success': true,
+          'token': data['access_token'],
+          'user': UserModel.fromJson(data['user']),
+        };
       } else {
         return {
           'success': false,
-          'message': data['message'] ?? 'Usuario o contraseña incorrectos'
+          'message': data['message'] ?? 'Credenciales inválidas',
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Error de conexión con el servidor'};
+      return {
+        'success': false,
+        'message': 'Error de conexión con el servidor',
+      };
     }
   }
 }
