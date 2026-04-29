@@ -5,6 +5,7 @@ import '../../models/estacion_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/estacion_service.dart';
 import '../../screens/login/login_screen.dart';
+import '../formulario/formulario_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -68,10 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     'Bienvenido, ${user.nombreCompleto}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                   const SizedBox(height: 8),
                   const Text(
@@ -119,7 +117,12 @@ class _EstacionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // Navegación al formulario (siguiente paso)
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FormularioScreen(estacion: estacion),
+          ),
+        );
       },
       child: Container(
         decoration: BoxDecoration(
