@@ -64,38 +64,124 @@ class _FormularioScreenState extends State<FormularioScreen> {
     super.dispose();
   }
 
-  bool _validateCurrentStep() {
+  String? _validateCurrentStep() {
     switch (_currentStep) {
-      case 0:
-        return ['SPAU_110C', 'SPAU_111C', 'SPAU_180_C_P_1', 'SPAU_180_C_E_1']
-            .every((key) => _formData[key]?.isNotEmpty ?? false);
-      case 1:
-        return ['TABLERO_GENERAL_ESTADO', 'TABLERO_BOMBA_1_ESTADO', 'TABLERO_BOMBA_2_ESTADO']
-            .every((key) => _formData[key]?.isNotEmpty ?? false);
-      case 2:
-        return ['NIVEL_CISTERNA_INICIAL', 'PRESION_LINEA_INICIAL', 
-                'TOTALIZADOR_INICIAL', 'PRESION_CISTERNA_INICIAL']
-            .every((key) => _formData[key]?.isNotEmpty ?? false);
-      case 3:
-        return widget.estacion.bombas.every((bomba) =>
-          (_formData['bomba_${bomba.id}_encendido']?.isNotEmpty ?? false) &&
-          (_formData['bomba_${bomba.id}_apagado']?.isNotEmpty ?? false) &&
-          (_formData['bomba_${bomba.id}_horometro_final']?.isNotEmpty ?? false)
-        );
-      case 4:
-        return ['NIVEL_CISTERNA_FINAL', 'PRESION_LINEA_FINAL',
-                'TOTALIZADOR_FINAL', 'PRESION_CISTERNA_FINAL']
-            .every((key) => _formData[key]?.isNotEmpty ?? false);
-      case 5:
-        return ['OPERADOR_TURNO_1', 'TOTAL_PRODUCCION', 'HORAS_BOMBEO_TOTAL']
-            .every((key) => _formData[key]?.isNotEmpty ?? false);
+      case 0: // Inspección
+        for (final key in ['SPAU_110C', 'SPAU_111C', 'SPAU_180_C_P_1', 'SPAU_180_C_E_1']) {
+          if (_formData[key]?.trim().isEmpty ?? true) {
+            return 'Complete todos los campos de inspección';
+          }
+        }
+        return null;
+
+      case 1: // Tableros
+        for (final key in ['TABLERO_GENERAL_ESTADO', 'TABLERO_BOMBA_1_ESTADO', 'TABLERO_BOMBA_2_ESTADO']) {
+          if (_formData[key]?.isEmpty ?? true) {
+            return 'Seleccione el estado de todos los tableros';
+          }
+        }
+        return null;
+
+      case 2: // Lectura Inicial
+        for (final key in ['NIVEL_CISTERNA_INICIAL', 'PRESION_LINEA_INICIAL',
+                           'TOTALIZADOR_INICIAL', 'PRESION_CISTERNA_INICIAL']) {
+          final val = _formData[key];
+          if (val == null || val.trim().isEmpty) {
+            return 'Complete todos los campos de lectura inicial';
+          }
+          if (double.tryParse(val) == null) {
+            return 'Todos los valores deben ser números válidos';
+          }
+        }
+        return null;
+
+      case 3: // Bombas
+        for (final bomba in widget.estacion.bombas) {
+          final encendido = _formData['bomba_${bomba.id}_encendido'];
+          final apagado   = _formData['bomba_${bomba.id}_apagado'];
+          final horIni    = _formData['bomba_${bomba.id}_horometro_inicial'];
+          final horFin    = _formData['bomba_${bomba.id}_horometro_final'];
+
+          if (encendido == null || encendido.isEmpty) return 'Ingrese hora de encendido de ${bomba.nombre}';
+          if (apagado == null   || apagado.isEmpty)   return 'Ingrese hora de apagado de ${bomba.nombre}';
+
+          // Apagado debe ser después del encendido
+          final partsEnc = encendido.split(':');
+          final partsApa = apagado.split(':');
+          final minutosEnc = int.parse(partsEnc[0]) * 60 + int.parse(partsEnc[1]);
+          final minutosApa = int.parse(partsApa[0]) * 60 + int.parse(partsApa[1]);
+          if (minutosApa <= minutosEnc) {
+            return 'La hora de apagado debe ser después del encendido en ${bomba.nombre}';
+          }
+
+          // Horómetros
+          if (horIni == null || horIni.isEmpty) return 'Ingrese horómetro inicial de ${bomba.nombre}';
+          if (horFin == null || horFin.isEmpty) return 'Ingrese horómetro final de ${bomba.nombre}';
+          if (double.tryParse(horIni) == null)  return 'Horómetro inicial inválido en ${bomba.nombre}';
+          if (double.tryParse(horFin) == null)  return 'Horómetro final inválido en ${bomba.nombre}';
+
+          // Horómetro final debe ser mayor al inicial
+          final ini = double.parse(horIni);
+          final fin = double.parse(horFin);
+          if (fin < ini) {
+            return 'El horómetro final debe ser mayor al inicial en ${bomba.nombre}';
+          }
+        }
+        return null;
+
+      case 4: // Lectura Final
+        for (final key in ['NIVEL_CISTERNA_FINAL', 'PRESION_LINEA_FINAL',
+                           'TOTALIZADOR_FINAL', 'PRESION_CISTERNA_FINAL']) {
+          final val = _formData[key];
+          if (val == null || val.trim().isEmpty) {
+            return 'Complete todos los campos de lectura final';
+          }
+          if (double.tryParse(val) == null) {
+            return 'Todos los valores deben ser números válidos';
+          }
+        }
+
+        // Totalizador final debe ser mayor al inicial
+        final totIni = double.tryParse(_formData['TOTALIZADOR_INICIAL'] ?? '');
+        final totFin = double.tryParse(_formData['TOTALIZADOR_FINAL'] ?? '');
+        if (totIni != null && totFin != null && totFin < totIni) {
+          return 'El totalizador final debe ser mayor al inicial';
+        }
+        return null;
+
+      case 5: // Operadores
+        final operador1 = _formData['OPERADOR_TURNO_1'];
+        if (operador1 == null || operador1.trim().isEmpty) {
+          return 'El operador del turno 1 es obligatorio';
+        }
+
+        // Solo letras y espacios en nombres
+        final soloLetras = RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$');
+        for (int i = 1; i <= 3; i++) {
+          final nombre = _formData['OPERADOR_TURNO_$i'];
+          if (nombre != null && nombre.isNotEmpty) {
+            if (!soloLetras.hasMatch(nombre.trim())) {
+              return 'El nombre del operador $i solo puede contener letras';
+            }
+          }
+        }
+
+        if (_formData['TOTAL_PRODUCCION']?.isEmpty ?? true) {
+          return 'Ingrese el total de producción';
+        }
+        if (_formData['HORAS_BOMBEO_TOTAL']?.isEmpty ?? true) {
+          return 'Ingrese las horas de bombeo total';
+        }
+        return null;
+
       default:
-        return false;
+        return null;
     }
   }
 
   void _nextStep() {
-    if (_validateCurrentStep()) {
+    final error = _validateCurrentStep();
+    if (error == null) {
       if (_currentStep < 5) {
         setState(() => _currentStep++);
         _pageController.animateToPage(
@@ -105,7 +191,7 @@ class _FormularioScreenState extends State<FormularioScreen> {
         );
       }
     } else {
-      _showSnackbar('Complete todos los campos requeridos', isError: true);
+      _showSnackbar(error, isError: true);
     }
   }
 
@@ -133,9 +219,11 @@ class _FormularioScreenState extends State<FormularioScreen> {
     );
   }
 
+
   Future<void> _guardar() async {
-    if (!_validateCurrentStep()) {
-      _showSnackbar('Complete todos los campos requeridos', isError: true);
+    final error = _validateCurrentStep();
+    if (error != null) {
+      _showSnackbar(error, isError: true);
       return;
     }
 
@@ -143,28 +231,78 @@ class _FormularioScreenState extends State<FormularioScreen> {
 
     try {
       final token = context.read<AuthProvider>().token!;
-      final valores = <Map<String, dynamic>>[];
 
-      // Build the payload from _formData
-      for (final activo in widget.estacion.activos) {
-        for (final campo in activo.tipoActivo.campos) {
-          final key = '${activo.id}_${campo.id}';
-          final valor = _formData[key];
-
-          if (valor != null && valor.isNotEmpty) {
-            valores.add({
-              'campo_id': campo.id,
-              'activo_id': activo.id,
-              'valor': valor,
-            });
-          }
+      // ── Operadores ──────────────────────────────────────────────
+      final operadores = <Map<String, dynamic>>[];
+      for (int turno = 1; turno <= 3; turno++) {
+        final nombre = _formData['OPERADOR_TURNO_$turno'];
+        if (nombre != null && nombre.trim().isNotEmpty) {
+          operadores.add({
+            'nombre': nombre.trim(),   // ← 'nombre' no 'nombre_operador'
+            'turno': turno,            // ← int no String
+          });
         }
       }
 
+      // ── Bombeos ──────────────────────────────────────────────────
+      final bombeos = <Map<String, dynamic>>[];
+      for (final bomba in widget.estacion.bombas) {
+        final encendido = _formData['bomba_${bomba.id}_encendido'];
+        final apagado   = _formData['bomba_${bomba.id}_apagado'];
+        final horIni    = _formData['bomba_${bomba.id}_horometro_inicial'];
+        final horFin    = _formData['bomba_${bomba.id}_horometro_final'];
+
+        if (encendido != null && apagado != null) {
+          final hoy = DateTime.now();
+          final partsEnc = encendido.split(':');
+          final partsApa = apagado.split(':');
+
+          bombeos.add({
+            'bomba_id': bomba.id,
+            'encendido': DateTime(hoy.year, hoy.month, hoy.day,
+                int.parse(partsEnc[0]), int.parse(partsEnc[1])).toIso8601String(),
+            'apagado': DateTime(hoy.year, hoy.month, hoy.day,
+                int.parse(partsApa[0]), int.parse(partsApa[1])).toIso8601String(),
+            'horometro_inicial': horIni != null ? double.tryParse(horIni) : null,
+            'horometro_final':   horFin != null ? double.tryParse(horFin) : null,
+          });
+        }
+      }
+
+      // ── Tableros ─────────────────────────────────────────────────
+      final tableros = [
+        {'nombre': 'Tablero General', 'estado': _formData['TABLERO_GENERAL_ESTADO'] ?? 'OK'},
+        {'nombre': 'Tablero Bomba 1', 'estado': _formData['TABLERO_BOMBA_1_ESTADO'] ?? 'OK'},
+        {'nombre': 'Tablero Bomba 2', 'estado': _formData['TABLERO_BOMBA_2_ESTADO'] ?? 'OK'},
+      ];
+
+      // ── Payload final ────────────────────────────────────────────
+      final payload = {
+        'estacion_id':           widget.estacion.id.toString(),
+        'fecha_folio':           DateTime.now().toIso8601String().substring(0, 10),
+        'totalizador_inicial':   double.tryParse(_formData['TOTALIZADOR_INICIAL'] ?? '0') ?? 0.0,
+        'totalizador_final':     double.tryParse(_formData['TOTALIZADOR_FINAL']   ?? '0') ?? 0.0,
+        'lectura_inicial': {
+          'nivel_cisterna':        _formData['NIVEL_CISTERNA_INICIAL'],
+          'presion_linea':         _formData['PRESION_LINEA_INICIAL'],
+          'totalizador':           _formData['TOTALIZADOR_INICIAL'],
+          'presion_jatun_huaylla': _formData['PRESION_CISTERNA_INICIAL'],
+        },
+        'lectura_final': {
+          'nivel_cisterna':        _formData['NIVEL_CISTERNA_FINAL'],
+          'presion_linea':         _formData['PRESION_LINEA_FINAL'],
+          'totalizador':           _formData['TOTALIZADOR_FINAL'],
+          'presion_jatun_huaylla': _formData['PRESION_CISTERNA_FINAL'],
+        },
+        'bombeos':   bombeos,    // ← era 'detallesBombeo'
+        'tableros':  tableros,   // ← nuevo campo requerido
+        'operadores': operadores,
+        // ← eliminados: produccion_calculada, observaciones
+      };
+
       final result = await OperacionService.registrar(
         token: token,
-        estacionId: widget.estacion.id.toString(),
-        valores: valores,
+        payload: payload,
       );
 
       if (!mounted) return;
@@ -177,9 +315,7 @@ class _FormularioScreenState extends State<FormularioScreen> {
         _showSnackbar(result['message']?.toString() ?? 'Error al guardar', isError: true);
       }
     } catch (e) {
-      if (mounted) {
-        _showSnackbar('Error: ${e.toString()}', isError: true);
-      }
+      if (mounted) _showSnackbar('Error: ${e.toString()}', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

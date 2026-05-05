@@ -1,25 +1,18 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../core/api_config.dart';
 
 class OperacionService {
-  static const String _baseUrl = 'http://localhost:3000';
-
   static Future<Map<String, dynamic>> registrar({
     required String token,
-    required String estacionId,
-    required List<Map<String, dynamic>> valores,
+    required Map<String, dynamic> payload,
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/operaciones'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'estacion_id': estacionId,
-          'valores': valores,
-        }),
+        Uri.parse(ApiConfig.operaciones),
+        headers: ApiConfig.headers(token: token),
+        body: jsonEncode(payload),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -29,30 +22,21 @@ class OperacionService {
           'message': data['message'] ?? 'Registro guardado correctamente',
         };
       } else {
+        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
         try {
           final data = jsonDecode(response.body);
-          String mensaje = data['message'] ?? 'Error al guardar';
-          
-          if (data['message'] is List) {
-            mensaje = (data['message'] as List).join(', ');
-          }
-          
-          return {
-            'success': false,
-            'message': mensaje,
-          };
-        } catch (e) {
-          return {
-            'success': false,
-            'message': 'Error ${response.statusCode}',
-          };
+          final rawMessage = data['message'];
+          final mensaje = rawMessage is List
+              ? (rawMessage as List).join(', ')
+              : rawMessage?.toString() ?? 'Error al guardar';
+          return {'success': false, 'message': mensaje};
+        } catch (_) {
+          return {'success': false, 'message': 'Error ${response.statusCode}: ${response.body}'};
         }
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Error de conexión',
-      };
+      debugPrint('❌ Excepción en registrar: $e');
+      return {'success': false, 'message': 'Error de conexión: $e'};
     }
   }
 }

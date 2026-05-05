@@ -1,16 +1,15 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
+import '../core/api_config.dart';
 
 class AuthService {
-  static const String _baseUrl = 'http://localhost:3000';
-
   static Future<Map<String, dynamic>> login(
       String username, String password) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('${ApiConfig.auth}/login'),
+        headers: ApiConfig.headers(),
         body: jsonEncode({
           'username': username,
           'password': password,
