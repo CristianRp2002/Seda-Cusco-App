@@ -1,6 +1,6 @@
 // lib/core/api_config.dart
 class ApiConfig {
-  static const String baseUrl = 'http://172.16.12.127:3000';
+  static const String baseUrl = 'http://localhost:3000';
 
   // Endpoints específicos
   static String get auth => '$baseUrl/auth';

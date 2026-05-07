@@ -108,11 +108,36 @@ class BombaModel {
   }
 }
 
+// ✅ NUEVO: Clase TableroModel
+class TableroModel {
+  final String id;
+  final String nombre;
+  final String? descripcion;
+  final bool activo;
+
+  TableroModel({
+    required this.id,
+    required this.nombre,
+    this.descripcion,
+    required this.activo,
+  });
+
+  factory TableroModel.fromJson(Map<String, dynamic> json) {
+    return TableroModel(
+      id: json['id'],
+      nombre: json['nombre'],
+      descripcion: json['descripcion'],
+      activo: json['activo'] ?? false,
+    );
+  }
+}
+
 class EstacionModel {
   final String id;
   final String nombre;
   final List<BombaModel> bombas;
   final List<ActivoModel> activos;
+  final List<TableroModel> tableros;
   final double? ultimoTotalizador;
 
   EstacionModel({
@@ -120,6 +145,7 @@ class EstacionModel {
     required this.nombre,
     required this.bombas,
     required this.activos,
+    required this.tableros,
     this.ultimoTotalizador,
   });
 
@@ -133,6 +159,9 @@ class EstacionModel {
       activos: (json['activos'] as List)
           .map((a) => ActivoModel.fromJson(a))
           .toList(),
+      tableros: (json['tableros'] as List?)
+          ?.map((t) => TableroModel.fromJson(t))
+          .toList() ?? [],
       ultimoTotalizador: json['ultimo_totalizador'] != null
           ? double.tryParse(json['ultimo_totalizador'].toString())
           : null,

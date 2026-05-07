@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/estacion_model.dart';
 
 class EstacionService {
-  static const String _baseUrl = 'http://172.16.12.127:3000';
+  static const String _baseUrl = 'http://localhost:3000';
 
   static Future<List<EstacionModel>> getEstaciones(String token) async {
     try {
