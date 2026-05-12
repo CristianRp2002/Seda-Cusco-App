@@ -22,11 +22,16 @@
   
     bool _isLoading = false;
     int _currentStep = 0;
+    int _turnoEditor = 1;
+    final Set<int> _turnosBloqueados = {};
+    bool _formInitialized = false;
+  
+    TableroModel? _tableroSeleccionado;
   
     late AnimationController _fadeController;
     late Animation<double> _fadeAnimation;
   
-    // ─── Paleta ──────────────────────────────────────────────────────────────
+    // ─── Paleta
     static const Color _primary       = Color(0xFF0D47A1);
     static const Color _primaryLight  = Color(0xFF1565C0);
     static const Color _accent        = Color(0xFF00BCD4);
@@ -38,7 +43,6 @@
     static const Color _success       = Color(0xFF00897B);
     static const Color _error         = Color(0xFFD32F2F);
   
-    // ─── 7 pasos ahora (se agregó "Activos" como paso 5) ─────────────────────
     final List<_StepInfo> _steps = [
       _StepInfo('Inspección',    Icons.manage_search_rounded,        'Verificación del sistema'),
       _StepInfo('Eléctrico',     Icons.electrical_services_rounded,  'Tensiones y tableros'),
@@ -49,11 +53,13 @@
       _StepInfo('Operadores',    Icons.badge_rounded,                'Personal y producción'),
     ];
   
-    // ─── Lifecycle ───────────────────────────────────────────────────────────
+    // ─── Lifecycle ──
     @override
     void initState() {
       super.initState();
-      _initializeFormData();
+      if (widget.estacion.tableros.isNotEmpty) {
+        _tableroSeleccionado = widget.estacion.tableros.first;
+      }
       _fadeController = AnimationController(
           vsync: this, duration: const Duration(milliseconds: 350));
       _fadeAnimation =
@@ -61,12 +67,21 @@
       _fadeController.forward();
     }
   
+    @override
+    void didChangeDependencies() {
+      super.didChangeDependencies();
+      if (!_formInitialized) {
+        _initializeFormData();
+        _formInitialized = true;
+      }
+    }
+  
     void _initializeFormData() {
       for (var bomba in widget.estacion.bombas) {
         _formData['bomba_${bomba.id}_horometro_inicial'] =
             bomba.ultimoHorometro.toString();
       }
-      // Valores por defecto para tableros
+      // Valores por defecto para los tableros
       for (var tablero in widget.estacion.tableros) {
         for (final momento in ['HABILITACION', 'DESACTIVACION']) {
           final prefix = 'tablero_${tablero.id}_$momento';
@@ -75,6 +90,14 @@
           _formData['${prefix}_parada']      = 'OK';
           _formData['${prefix}_variador']    = 'OK';
           _formData['${prefix}_alarma']      = 'OK';
+        }
+      }
+  
+      final user = context.read<AuthProvider>().user;
+      for (int i = 1; i <= 3; i++) {
+        if (i == _turnoEditor && user != null) {
+          _formData['OPERADOR_TURNO_$i'] = user.nombreCompleto;
+          _turnosBloqueados.add(i);
         }
       }
     }
@@ -92,7 +115,7 @@
       super.dispose();
     }
   
-    // ─── Navegación ──────────────────────────────────────────────────────────
+    // ─── Navegación
     void _nextStep() {
       final error = _validateCurrentStep();
       if (error != null) {
@@ -118,16 +141,10 @@
       }
     }
   
-    // ─── Validación ──────────────────────────────────────────────────────────
+    // ─── Validación
     String? _validateCurrentStep() {
       switch (_currentStep) {
-      // Paso 0 — Inspección + campos eléctricos básicos
         case 0:
-          for (final k in ['SPAU_110C', 'SPAU_111C', 'SPAU_180_C_P_1', 'SPAU_180_C_E_1']) {
-            if (_formData[k]?.trim().isEmpty ?? true) {
-              return 'Complete todos los campos de inspección';
-            }
-          }
           if (_formData['INTERRUPTOR_10KV_ESTADO']?.isEmpty ?? true) {
             return 'Seleccione el estado del interruptor de llegada 10kV';
           }
@@ -139,7 +156,6 @@
           }
           return null;
   
-      // Paso 1 — Tensiones y tableros
         case 1:
           for (var tablero in widget.estacion.tableros) {
             for (final momento in ['HABILITACION', 'DESACTIVACION']) {
@@ -153,7 +169,6 @@
           }
           return null;
   
-      // Paso 2 — Lectura inicial
         case 2:
           for (final k in ['NIVEL_CISTERNA_INICIAL', 'PRESION_LINEA_INICIAL',
             'TOTALIZADOR_INICIAL', 'PRESION_JATUN_HUAYLLA_INICIAL']) {
@@ -163,7 +178,6 @@
           }
           return null;
   
-      // Paso 3 — Bombas
         case 3:
           for (final bomba in widget.estacion.bombas) {
             final enc    = _formData['bomba_${bomba.id}_encendido'];
@@ -193,7 +207,6 @@
           }
           return null;
   
-      // Paso 4 — Activos (campos requeridos solamente)
         case 4:
           for (var activo in widget.estacion.activos.where((a) => a.activo)) {
             for (var campo in activo.tipoActivo.campos.where((c) => c.requerido)) {
@@ -205,7 +218,6 @@
           }
           return null;
   
-      // Paso 5 — Lectura final
         case 5:
           for (final k in ['NIVEL_CISTERNA_FINAL', 'PRESION_LINEA_FINAL',
             'TOTALIZADOR_FINAL', 'PRESION_JATUN_HUAYLLA_FINAL']) {
@@ -220,7 +232,6 @@
           }
           return null;
   
-      // Paso 6 — Operadores
         case 6:
           final op1 = _formData['OPERADOR_TURNO_1'];
           if (op1 == null || op1.trim().isEmpty) return 'El operador del turno 1 es obligatorio';
@@ -238,7 +249,7 @@
       }
     }
   
-    // ─── Guardar ─────────────────────────────────────────────────────────────
+    // ─── Guardar ───
     Future<void> _guardar() async {
       final error = _validateCurrentStep();
       if (error != null) {
@@ -250,7 +261,6 @@
       try {
         final token = context.read<AuthProvider>().token!;
   
-        // ── Operadores ──────────────────────────────────────────────────────
         final operadores = <Map<String, dynamic>>[];
         for (int i = 1; i <= 3; i++) {
           final nombre = _formData['OPERADOR_TURNO_$i'];
@@ -259,7 +269,6 @@
           }
         }
   
-        // ── Bombeos ─────────────────────────────────────────────────────────
         final bombeos = <Map<String, dynamic>>[];
         for (final bomba in widget.estacion.bombas) {
           final encendido = _formData['bomba_${bomba.id}_encendido'];
@@ -278,7 +287,6 @@
           }
         }
   
-        // ── Tableros ─────────────────────────────────────────────────────────
         final tableros = <Map<String, dynamic>>[];
         for (final tablero in widget.estacion.tableros) {
           for (final momento in ['HABILITACION', 'DESACTIVACION']) {
@@ -295,7 +303,6 @@
           }
         }
   
-        // ── Activos dinámicos ─────────────────────────────────────────────────
         final registrosActivo = <Map<String, dynamic>>[];
         for (var activo in widget.estacion.activos.where((a) => a.activo)) {
           for (var campo in activo.tipoActivo.campos) {
@@ -311,17 +318,12 @@
           }
         }
   
-        // ── Payload final ─────────────────────────────────────────────────────
         final payload = <String, dynamic>{
           'estacion_id':       widget.estacion.id.toString(),
           'fecha_folio':       DateTime.now().toIso8601String().substring(0, 10),
-  
-          // Paso 0 — Inspección y eléctrico
           'interruptor_llegada_10kv_estado': _formData['INTERRUPTOR_10KV_ESTADO'] ?? '',
           'transformador_temperatura':
           double.tryParse(_formData['TRANSFORMADOR_TEMPERATURA'] ?? ''),
-  
-          // Paso 1 — Tensiones de fase (opcionales)
           'tension_llegada': {
             'fase_R': double.tryParse(_formData['LLEGADA_FASE_R'] ?? ''),
             'fase_S': double.tryParse(_formData['LLEGADA_FASE_S'] ?? ''),
@@ -332,8 +334,6 @@
             'fase_S': double.tryParse(_formData['TABLERO_FASE_S'] ?? ''),
             'fase_T': double.tryParse(_formData['TABLERO_FASE_T'] ?? ''),
           },
-  
-          // Paso 2 — Lectura inicial
           'totalizador_inicial':
           double.tryParse(_formData['TOTALIZADOR_INICIAL'] ?? '0') ?? 0.0,
           'lectura_inicial': {
@@ -343,8 +343,6 @@
             'totalizador':           double.tryParse(_formData['TOTALIZADOR_INICIAL'] ?? ''),
             'presion_jatun_huaylla': double.tryParse(_formData['PRESION_JATUN_HUAYLLA_INICIAL'] ?? ''),
           },
-  
-          // Paso 5 — Lectura final
           'totalizador_final':
           double.tryParse(_formData['TOTALIZADOR_FINAL'] ?? '0') ?? 0.0,
           'nivel_cisterna_final': double.tryParse(_formData['NIVEL_CISTERNA_FINAL'] ?? ''),
@@ -356,8 +354,6 @@
             'totalizador':           double.tryParse(_formData['TOTALIZADOR_FINAL'] ?? ''),
             'presion_jatun_huaylla': double.tryParse(_formData['PRESION_JATUN_HUAYLLA_FINAL'] ?? ''),
           },
-  
-          // Condiciones de habilitación y desactivación (paso 1)
           'condicion_habilitacion': {
             'estado_telemetria': _formData['HABILITACION_ESTADO_TELEMETRIA'],
             'presion_ingreso':   double.tryParse(_formData['HABILITACION_PRESION_INGRESO'] ?? ''),
@@ -366,7 +362,6 @@
             'estado_telemetria': _formData['DESACTIVACION_ESTADO_TELEMETRIA'],
             'presion_ingreso':   double.tryParse(_formData['DESACTIVACION_PRESION_INGRESO'] ?? ''),
           },
-  
           'operadores':       operadores,
           'bombeos':          bombeos,
           'tableros':         tableros,
@@ -390,7 +385,7 @@
       }
     }
   
-    // ─── Snackbar ────────────────────────────────────────────────────────────
+    // ─── Snackbar ───
     void _showSnackbar(String message, {bool isError = false}) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -408,9 +403,6 @@
       ));
     }
   
-    // ══════════════════════════════════════════════════════════════════════════
-    //  BUILD
-    // ══════════════════════════════════════════════════════════════════════════
     @override
     Widget build(BuildContext context) {
       return Scaffold(
@@ -426,10 +418,10 @@
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   _buildInspeccionStep(),
-                  _buildElectricoStep(),       // NUEVO: tensiones + telemetría
+                  _buildElectricoStep(),
                   _buildLecturaInicialStep(),
                   _buildBombasStep(),
-                  _buildActivosStep(),          // NUEVO: activos dinámicos
+                  _buildActivosStep(),
                   _buildLecturaFinalStep(),
                   _buildOperadoresStep(),
                 ],
@@ -441,7 +433,7 @@
       );
     }
   
-    // ─── Header ──────────────────────────────────────────────────────────────
+    // ─── Header ─
     Widget _buildHeader() {
       return Container(
         decoration: const BoxDecoration(
@@ -484,7 +476,7 @@
       );
     }
   
-    // ─── Stepper ─────────────────────────────────────────────────────────────
+    // ─── Stepper
     Widget _buildStepper() {
       return Container(
         color: _primary,
@@ -558,7 +550,7 @@
       );
     }
   
-    // ─── Contenedor de paso ───────────────────────────────────────────────────
+    // ─── Contenedor de paso ───
     Widget _buildStepContainer({
       required String title,
       required String subtitle,
@@ -610,7 +602,7 @@
       );
     }
   
-    // ─── Campo de texto ───────────────────────────────────────────────────────
+    // ─── Campo de texto
     Widget _buildField({
       required String label,
       required String key,
@@ -640,7 +632,11 @@
             readOnly: readOnly,
             onTap: onTap,
             keyboardType: keyboardType,
-            style: const TextStyle(fontSize: 15, color: _textPrimary, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontSize: 15,
+              color: readOnly ? _textSecondary : _textPrimary,   // 👈 gris si bloqueado
+              fontWeight: FontWeight.w500,
+            ),
             onChanged: readOnly ? null : (v) => _formData[key] = v,
             decoration: InputDecoration(
               hintText: hint ?? 'Ingrese $label',
@@ -649,16 +645,23 @@
               suffixStyle: const TextStyle(color: _textSecondary,
                   fontWeight: FontWeight.w600, fontSize: 13),
               prefixIcon: icon != null
-                  ? Icon(icon, size: 19, color: _primary.withOpacity(0.7))
+                  ? Icon(icon, size: 19,
+                  color: readOnly                                // 👈 icono gris si bloqueado
+                      ? _textSecondary
+                      : _primary.withOpacity(0.7))
                   : null,
               filled: true,
-              fillColor: _cardBg,
+              fillColor: readOnly                               // 👈 fondo gris si bloqueado
+                  ? const Color(0xFFF0F2F8)
+                  : _cardBg,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: _border)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: _border, width: 1.5)),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: _primary, width: 2)),
+                  borderSide: BorderSide(
+                      color: readOnly ? _border : _primary,     // 👈 sin resalte si bloqueado
+                      width: 2)),
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             ),
           ),
@@ -666,7 +669,7 @@
       );
     }
   
-    // ─── Campo de hora ────────────────────────────────────────────────────────
+    // ─── Campo de hora ──
     Widget _buildTimeField({
       required String label,
       required String key,
@@ -716,7 +719,7 @@
       ]);
     }
   
-    // ─── Selector de estado (OK / Defectuoso / Revisión) ─────────────────────
+    // ─── Selector de estado
     Widget _buildStatusSelector(String label, String key) {
       const options = ['OK', 'Defectuoso', 'Revisión'];
       final selected = _formData[key] ?? 'OK';
@@ -805,35 +808,56 @@
     //  PASOS
     // ═══════════════════════════════════════════════════════════════════════════
   
-    // ─── Paso 0: Inspección ───────────────────────────────────────────────────
     Widget _buildInspeccionStep() {
       return _buildStepContainer(
         title: 'Inspección del Sistema',
-        subtitle: 'Verificación SPAU e interruptor principal',
+        subtitle: 'De Protección Sub Estación',
         icon: Icons.manage_search_rounded,
         children: [
           _buildCard(children: [
-            const Text('Componentes SPAU',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                    color: _textSecondary)),
-            const SizedBox(height: 12),
-            _buildField(label: 'SPAU 110C',     key: 'SPAU_110C',
-                icon: Icons.radio_button_checked, hint: 'Estado del componente'),
-            _buildField(label: 'SPAU 111C',     key: 'SPAU_111C',
-                icon: Icons.radio_button_checked, hint: 'Estado del componente'),
-            _buildField(label: 'SPAU 180 C P-1', key: 'SPAU_180_C_P_1',
-                icon: Icons.radio_button_checked, hint: 'Estado del componente'),
-            _buildField(label: 'SPAU 180 C E-1', key: 'SPAU_180_C_E_1',
-                icon: Icons.radio_button_checked, hint: 'Estado del componente'),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: _primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.group_rounded, color: _primary, size: 16),
+              ),
+              const SizedBox(width: 8),
+              const Text('Operadores de turno',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
+                      color: _textPrimary)),
+            ]),
+            const SizedBox(height: 14),
+  
+            _buildField(
+              label: 'Operador 1 *',
+              key: 'OPERADOR_TURNO_1',
+              icon: Icons.person_rounded,
+              readOnly: _turnosBloqueados.contains(1),
+            ),
+  
+            _buildField(
+              label: 'Operador 2',
+              key: 'OPERADOR_TURNO_2',
+              icon: Icons.person_outline_rounded,
+              optional: true,
+              readOnly: _turnosBloqueados.contains(2),
+            ),
+  
+            _buildField(
+              label: 'Operador 3',
+              key: 'OPERADOR_TURNO_3',
+              icon: Icons.person_outline_rounded,
+              optional: true,
+              readOnly: _turnosBloqueados.contains(3),
+            ),
           ]),
           _buildCard(children: [
             const Text('Interruptor y transformador',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
                     color: _textSecondary)),
             const SizedBox(height: 12),
-            // NUEVO: Estado interruptor llegada 10kV
             _buildStatusSelector('Interruptor llegada 10kV', 'INTERRUPTOR_10KV_ESTADO'),
-            // NUEVO: Temperatura del transformador
             _buildField(
                 label: 'Temperatura transformador',
                 key: 'TRANSFORMADOR_TEMPERATURA',
@@ -841,18 +865,6 @@
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 suffix: '°C'),
           ]),
-        ],
-      );
-    }
-  
-    // ─── Paso 1: Eléctrico (NUEVO — antes no existía) ─────────────────────────
-    Widget _buildElectricoStep() {
-      return _buildStepContainer(
-        title: 'Verificación Eléctrica',
-        subtitle: 'Tensiones de fase y condiciones de operación',
-        icon: Icons.electrical_services_rounded,
-        children: [
-          // Tensiones de llegada (opcionales)
           _buildCard(children: [
             const Text('Tensión de llegada',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
@@ -872,7 +884,6 @@
                   suffix: 'V', optional: true)),
             ]),
           ]),
-          // Tensiones de tablero (opcionales)
           _buildCard(children: [
             const Text('Tensión en tablero',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
@@ -892,35 +903,64 @@
                   suffix: 'V', optional: true)),
             ]),
           ]),
-          // Estado tableros por momento
-          ...widget.estacion.tableros.expand((tablero) => [
+        ],
+      );
+    }
+  
+    Widget _buildElectricoStep() {
+      return _buildStepContainer(
+        title: 'Habilitación de equipos',
+        subtitle: 'Sala de Mandos',
+        icon: Icons.electrical_services_rounded,
+        children: [
+  
+          // — Selector de tableros —
+          if (widget.estacion.tableros.isNotEmpty)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: widget.estacion.tableros.map((tablero) {
+                  final isSelected = _tableroSeleccionado?.id == tablero.id;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(tablero.nombre),
+                      selected: isSelected,
+                      onSelected: (_) => setState(() {
+                        _tableroSeleccionado = tablero;
+                      }),
+                      selectedColor: _primaryLight,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : _textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+  
+          const SizedBox(height: 8),
+  
+          // — Card del tablero seleccionado —
+          if (_tableroSeleccionado != null)
             _buildCard(children: [
-              Text(tablero.nombre,
+              Text(_tableroSeleccionado!.nombre,
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
                       color: _textPrimary)),
               const SizedBox(height: 4),
               const Text('HABILITACIÓN',
-                  style: TextStyle(fontSize: 11, color: _textSecondary,
-                      letterSpacing: 0.5)),
+                  style: TextStyle(fontSize: 11, color: _textSecondary, letterSpacing: 0.5)),
               const SizedBox(height: 12),
-              _buildStatusSelector('Interruptor',        'tablero_${tablero.id}_HABILITACION_interruptor'),
-              _buildStatusSelector('Selector',           'tablero_${tablero.id}_HABILITACION_selector'),
-              _buildStatusSelector('Parada emergencia',  'tablero_${tablero.id}_HABILITACION_parada'),
-              _buildStatusSelector('Variador',           'tablero_${tablero.id}_HABILITACION_variador'),
-              _buildStatusSelector('Alarma',             'tablero_${tablero.id}_HABILITACION_alarma'),
-              const Divider(height: 24),
-              const Text('DESACTIVACIÓN',
-                  style: TextStyle(fontSize: 11, color: _textSecondary,
-                      letterSpacing: 0.5)),
-              const SizedBox(height: 12),
-              _buildStatusSelector('Interruptor',        'tablero_${tablero.id}_DESACTIVACION_interruptor'),
-              _buildStatusSelector('Selector',           'tablero_${tablero.id}_DESACTIVACION_selector'),
-              _buildStatusSelector('Parada emergencia',  'tablero_${tablero.id}_DESACTIVACION_parada'),
-              _buildStatusSelector('Variador',           'tablero_${tablero.id}_DESACTIVACION_variador'),
-              _buildStatusSelector('Alarma',             'tablero_${tablero.id}_DESACTIVACION_alarma'),
+              _buildStatusSelector('Interruptor',       'tablero_${_tableroSeleccionado!.id}_HABILITACION_interruptor'),
+              _buildStatusSelector('Selector',          'tablero_${_tableroSeleccionado!.id}_HABILITACION_selector'),
+              _buildStatusSelector('Parada emergencia', 'tablero_${_tableroSeleccionado!.id}_HABILITACION_parada'),
+              _buildStatusSelector('Variador',          'tablero_${_tableroSeleccionado!.id}_HABILITACION_variador'),
+              _buildStatusSelector('Alarma',            'tablero_${_tableroSeleccionado!.id}_HABILITACION_alarma'),
+  
             ]),
-          ]),
-          // Condiciones de habilitación y desactivación (telemetría)
+  
           _buildCard(children: [
             const Text('Condición de habilitación',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
@@ -932,23 +972,11 @@
                 icon: Icons.speed_rounded,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 suffix: 'bar', optional: true),
-            const Divider(height: 24),
-            const Text('Condición de desactivación',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                    color: _textSecondary)),
-            const SizedBox(height: 12),
-            _buildField(label: 'Estado telemetría', key: 'DESACTIVACION_ESTADO_TELEMETRIA',
-                icon: Icons.sensors_rounded, optional: true),
-            _buildField(label: 'Presión de ingreso', key: 'DESACTIVACION_PRESION_INGRESO',
-                icon: Icons.speed_rounded,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                suffix: 'bar', optional: true),
           ]),
         ],
       );
     }
   
-    // ─── Paso 2: Lectura inicial ──────────────────────────────────────────────
     Widget _buildLecturaInicialStep() {
       return _buildStepContainer(
         title: 'Lectura Inicial',
@@ -956,33 +984,78 @@
         icon: Icons.play_circle_rounded,
         children: [
           _buildCard(children: [
-            // NUEVO: Hora de registro
-            _buildField(label: 'Hora de registro', key: 'HORA_INICIAL',
-                icon: Icons.access_time_rounded,
-                hint: 'HH:MM', optional: true),
-            _buildField(label: 'Nivel cisterna', key: 'NIVEL_CISTERNA_INICIAL',
-                icon: Icons.water_drop_outlined,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                suffix: 'm'),
-            _buildField(label: 'Presión línea', key: 'PRESION_LINEA_INICIAL',
-                icon: Icons.speed_rounded,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                suffix: 'bar'),
-            _buildField(label: 'Totalizador', key: 'TOTALIZADOR_INICIAL',
-                icon: Icons.analytics_outlined,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                suffix: 'm³'),
-            // NUEVO: Presión Jatun Huaylla
-            _buildField(label: 'Presión Jatun Huaylla', key: 'PRESION_JATUN_HUAYLLA_INICIAL',
-                icon: Icons.compress_rounded,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                suffix: 'bar'),
+            _buildTimeField(
+              label: 'Fecha y hora de registro',
+              key: 'HORA_INICIAL',
+              icon: Icons.access_time_rounded,
+              iconColor: _primary,
+              onTap: () async {
+                final DateTime? pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                  locale: const Locale('es', 'ES'),
+                );
+  
+                if (pickedDate == null) return;
+                final TimeOfDay? pickedTime = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.now(),
+                  builder: (context, child) => MediaQuery(
+                    data: MediaQuery.of(context)
+                        .copyWith(alwaysUse24HourFormat: true),
+                    child: child!,
+                  ),
+                );
+  
+                if (pickedTime == null) return;
+                final formatted =
+                    '${pickedDate.day.toString().padLeft(2, '0')}/'
+                    '${pickedDate.month.toString().padLeft(2, '0')}/'
+                    '${pickedDate.year}  '
+                    '${pickedTime.hour.toString().padLeft(2, '0')}:'
+                    '${pickedTime.minute.toString().padLeft(2, '0')}';
+  
+                setState(() {
+                  _formData['HORA_INICIAL'] = formatted;
+                  _getController('HORA_INICIAL').text = formatted;
+                });
+              },
+            ),
+            _buildField(
+              label: 'Nivel cisterna',
+              key: 'NIVEL_CISTERNA_INICIAL',
+              icon: Icons.water_drop_outlined,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              suffix: 'm',
+            ),
+            _buildField(
+              label: 'Presión línea',
+              key: 'PRESION_LINEA_INICIAL',
+              icon: Icons.speed_rounded,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              suffix: 'bar',
+            ),
+            _buildField(
+              label: 'Totalizador',
+              key: 'TOTALIZADOR_INICIAL',
+              icon: Icons.analytics_outlined,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              suffix: 'm³',
+            ),
+            _buildField(
+              label: 'Presión Jatun Huaylla',
+              key: 'PRESION_JATUN_HUAYLLA_INICIAL',
+              icon: Icons.compress_rounded,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              suffix: 'bar',
+            ),
           ]),
         ],
       );
     }
   
-    // ─── Paso 3: Bombas ───────────────────────────────────────────────────────
     Widget _buildBombasStep() {
       return _buildStepContainer(
         title: 'Control de Bombas',
@@ -1007,7 +1080,6 @@
               offset: const Offset(0, 4))],
         ),
         child: Column(children: [
-          // Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
@@ -1046,7 +1118,6 @@
                 ),
             ]),
           ),
-          // Cuerpo
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(children: [
@@ -1128,7 +1199,6 @@
                   ),
                 ),
               ]),
-              // NUEVO: Observación por bomba
               _buildField(
                 label: 'Observación',
                 key: 'bomba_${bomba.id}_observacion',
@@ -1142,11 +1212,8 @@
       );
     }
   
-    // ─── Paso 4: Activos dinámicos (NUEVO — completo) ─────────────────────────
     Widget _buildActivosStep() {
-      final activosActivos = widget.estacion.activos
-          .where((a) => a.activo)
-          .toList();
+      final activosActivos = widget.estacion.activos.where((a) => a.activo).toList();
   
       if (activosActivos.isEmpty) {
         return _buildStepContainer(
@@ -1189,7 +1256,6 @@
                   blurRadius: 8, offset: const Offset(0, 3))],
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Header del activo
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -1218,7 +1284,6 @@
                   ),
                 ]),
               ),
-              // Campos del activo
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -1234,7 +1299,6 @@
       );
     }
   
-    // Campo dinámico según tipo de campo del activo
     Widget _buildCampoActivo({required dynamic campo, required String key}) {
       final tipo = campo.tipoInput;
       if (tipo == 'booleano') {
@@ -1272,15 +1336,14 @@
   
     IconData _getIconoPorTipo(String tipo) {
       const iconos = {
-        'Bomba':        Icons.water_damage_rounded,
-        'Transformador':Icons.electrical_services_rounded,
-        'Cisterna':     Icons.water_drop_rounded,
-        'Medidor':      Icons.speed_rounded,
+        'Bomba':         Icons.water_damage_rounded,
+        'Transformador': Icons.electrical_services_rounded,
+        'Cisterna':      Icons.water_drop_rounded,
+        'Medidor':       Icons.speed_rounded,
       };
       return iconos[tipo] ?? Icons.device_hub_rounded;
     }
   
-    // ─── Paso 5: Lectura final ─────────────────────────────────────────────────
     Widget _buildLecturaFinalStep() {
       return _buildStepContainer(
         title: 'Lectura Final',
@@ -1288,10 +1351,8 @@
         icon: Icons.stop_circle_rounded,
         children: [
           _buildCard(children: [
-            // NUEVO: Hora de registro final
             _buildField(label: 'Hora de registro', key: 'HORA_FINAL',
-                icon: Icons.access_time_rounded,
-                hint: 'HH:MM', optional: true),
+                icon: Icons.access_time_rounded, hint: 'HH:MM', optional: true),
             _buildField(label: 'Nivel cisterna', key: 'NIVEL_CISTERNA_FINAL',
                 icon: Icons.water_drop_outlined,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1304,13 +1365,11 @@
                 icon: Icons.analytics_outlined,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 suffix: 'm³'),
-            // NUEVO: Presión Jatun Huaylla final
             _buildField(label: 'Presión Jatun Huaylla', key: 'PRESION_JATUN_HUAYLLA_FINAL',
                 icon: Icons.compress_rounded,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 suffix: 'bar'),
           ]),
-          // NUEVO: Resumen de producción calculada
           _buildCard(children: [
             Row(children: [
               Container(
@@ -1352,35 +1411,13 @@
       );
     }
   
-    // ─── Paso 6: Operadores ───────────────────────────────────────────────────
+    // ─── Paso 6: Operadores ───
     Widget _buildOperadoresStep() {
       return _buildStepContainer(
         title: 'Información Final',
         subtitle: 'Personal de turno y observaciones',
         icon: Icons.badge_rounded,
         children: [
-          _buildCard(children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(color: _primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.group_rounded, color: _primary, size: 16),
-              ),
-              const SizedBox(width: 8),
-              const Text('Operadores de turno',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
-                      color: _textPrimary)),
-            ]),
-            const SizedBox(height: 14),
-            _buildField(label: 'Operador 1 *',           key: 'OPERADOR_TURNO_1',
-                icon: Icons.person_rounded),
-            _buildField(label: 'Operador 2',             key: 'OPERADOR_TURNO_2',
-                icon: Icons.person_outline_rounded, optional: true),
-            _buildField(label: 'Operador 3',             key: 'OPERADOR_TURNO_3',
-                icon: Icons.person_outline_rounded, optional: true),
-          ]),
-          // Observaciones generales
           _buildCard(children: [
             const Text('Observaciones',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
@@ -1409,7 +1446,7 @@
       );
     }
   
-    // ─── Barra inferior ───────────────────────────────────────────────────────
+    // ─── Barra inferior
     Widget _buildBottomBar() {
       final isLast = _currentStep == _steps.length - 1;
       return Container(
@@ -1468,7 +1505,7 @@
     }
   }
   
-  // ─── Modelo auxiliar ──────────────────────────────────────────────────────────
+  // ─── Modelo auxiliar
   class _StepInfo {
     final String title, subtitle;
     final IconData icon;

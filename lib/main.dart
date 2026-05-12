@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/theme.dart';
 import 'providers/auth_provider.dart';
@@ -20,14 +21,20 @@ class MyApp extends StatelessWidget {
           create: (_) => AuthProvider(),
         ),
       ],
-
       child: MaterialApp(
         title: 'SEDA Cusco',
-
         debugShowCheckedModeBanner: false,
-
         theme: AppTheme.theme,
 
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('es', 'ES'),
+        ],
+        locale: const Locale('es', 'ES'),
         home: const LoginScreen(),
       ),
     );

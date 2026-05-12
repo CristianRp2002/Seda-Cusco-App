@@ -1,18 +1,15 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/estacion_model.dart';
+import '../core/api_config.dart';
 
 class EstacionService {
-  static const String _baseUrl = 'http://localhost:3000';
 
   static Future<List<EstacionModel>> getEstaciones(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/estaciones'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        Uri.parse(ApiConfig.estaciones),
+        headers: ApiConfig.headers(token: token),
       );
 
       if (response.statusCode == 200) {
