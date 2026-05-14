@@ -8,6 +8,7 @@ import '../../models/estacion_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../screens/login/login_screen.dart';
 import '../../services/estacion_service.dart';
+import '../../screens/registros/registros_screen.dart';
 
 import '../../widgets/custom_buttom.dart';
 import '../../widgets/custom_search.dart';
@@ -185,11 +186,6 @@ class _HomeScreenState extends State<HomeScreen> {
         return Scaffold(
           backgroundColor:
           AppTheme.background,
-
-          // ===================================
-          // BODY
-          // ===================================
-
           body: _isLoading
               ? const Center(
             child:
@@ -202,10 +198,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child:
             CustomScrollView(
               slivers: [
-                // ==========================
-                // APP BAR
-                // ==========================
-
                 SliverAppBar(
                   pinned: true,
 
@@ -266,10 +258,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
 
-                // ==========================
-                // CONTENIDO
-                // ==========================
-
                 SliverToBoxAdapter(
                   child: Padding(
                     padding:
@@ -283,10 +271,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           .start,
 
                       children: [
-                        // ===================
-                        // HEADER
-                        // ===================
-
                         Text(
                           'Hola, ${user.nombreCompleto.split(' ').first} 👋',
 
@@ -321,10 +305,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(
                           height: 26,
                         ),
-
-                        // ===================
-                        // KPI
-                        // ===================
 
                         Row(
                           children: [
@@ -380,10 +360,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           height: 24,
                         ),
 
-                        // ===================
-                        // SEARCH
-                        // ===================
-
                         CustomSearchBar(
                           onChanged:
                           _filtrarEstaciones,
@@ -396,10 +372,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-
-                // ==========================
-                // LISTA
-                // ==========================
 
                 SliverPadding(
                   padding:
@@ -456,10 +428,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // ===================================
-          // FLOATING BUTTON
-          // ===================================
-
           floatingActionButton:
           FloatingActionButton(
             onPressed: () {},
@@ -473,22 +441,22 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // ===================================
-          // BOTTOM NAVIGATION
-          // ===================================
-
-          bottomNavigationBar:
-          CustomBottomNav(
-            currentIndex:
-            _currentNavIndex,
-
+          bottomNavigationBar: CustomBottomNav(
+            currentIndex: _currentNavIndex,
             onTap: (index) {
-              setState(() {
-                _currentNavIndex =
-                    index;
-              });
+              if (index == 1) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const RegistrosScreen(),
+                  ),
+                );
+                return;
+              }
+              setState(() => _currentNavIndex = index);
             },
           ),
+
         );
       },
     );

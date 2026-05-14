@@ -59,7 +59,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     _StepInfo('Operadores',    Icons.badge_rounded,                'Personal y producción'),
   ];
 
-  // ─── Lifecycle ──────────────────────────────────────────────────────────
+  // ─── Lifecycle ───────
   @override
   void initState() {
     super.initState();
@@ -199,7 +199,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     }
   }
 
-  // ─── Validación ──────────────────────────────────────────────────────────
+  // ─── Validación ───────
   String? _validateCurrentStep() {
     switch (_currentStep) {
       case 0:
@@ -310,7 +310,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     }
   }
 
-  // ─── Guardar ─────────────────────────────────────────────────────────────
+  // ─── Guardar
   Future<void> _guardar() async {
     final error = _validateCurrentStep();
     if (error != null) {
@@ -447,7 +447,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     }
   }
 
-  // ─── Snackbar ─────────────────────────────────────────────────────────────
+  // ─── Snackbar
   void _showSnackbar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -465,7 +465,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     ));
   }
 
-  // ─── Build ────────────────────────────────────────────────────────────────
+  // ─── Build ───
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -497,7 +497,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     );
   }
 
-  // ─── Header ───────────────────────────────────────────────────────────────
+  // ─── Header ──
   Widget _buildHeader() {
     return Container(
       decoration: const BoxDecoration(
@@ -540,7 +540,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     );
   }
 
-  // ─── Stepper ──────────────────────────────────────────────────────────────
+  // ─── Stepper ─
   Widget _buildStepper() {
     return Container(
       color: _primary,
@@ -614,7 +614,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     );
   }
 
-  // ─── Contenedor de paso ───────────────────────────────────────────────────
+  // ─── Contenedor de paso
   Widget _buildStepContainer({
     required String title,
     required String subtitle,
@@ -666,7 +666,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     );
   }
 
-  // ─── Campo de texto ───────────────────────────────────────────────────────
+  // ─── Campo de texto ────
   Widget _buildField({
     required String label,
     required String key,
@@ -728,7 +728,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     );
   }
 
-  // ─── Campo de hora ────────────────────────────────────────────────────────
+  // ─── Campo de hora ─────
   Widget _buildTimeField({
     required String label,
     required String key,
@@ -778,7 +778,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     ]);
   }
 
-  // ─── Selector de estado ───────────────────────────────────────────────────
+  // ─── Selector de estado
   Widget _buildStatusSelector(String label, String key) {
     const options = ['OK', 'Defectuoso', 'Revisión'];
     final selected = _formData[key] ?? 'OK';
@@ -1689,7 +1689,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     );
   }
 
-  // ─── Barra inferior ───────────────────────────────────────────────────────
+  // ─── Barra inferior ────
   Widget _buildBottomBar() {
     final isLast = _currentStep == _steps.length - 1;
     return Container(
@@ -1748,7 +1748,7 @@ class _FormularioScreenState extends State<FormularioScreen>
   }
 }
 
-// ─── Modelo auxiliar ──────────────────────────────────────────────────────────
+// ─── Modelo auxiliar ───────
 class _StepInfo {
   final String title, subtitle;
   final IconData icon;
