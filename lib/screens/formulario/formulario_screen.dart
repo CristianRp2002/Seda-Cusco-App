@@ -26,6 +26,11 @@ class _FormularioScreenState extends State<FormularioScreen>
   final Set<int> _turnosBloqueados = {};
   bool _formInitialized = false;
 
+  // ── Bandera de primer llenado ──────────────────────────────────────────────
+  // Cuando es true, los pasos "Lect. Final" (índice 5) y "Desactivación"
+  // (índice 6) se ocultan del stepper y del PageView.
+  bool _isPrimerLlenado = true;
+
   TableroModel? _tableroSeleccionado;
   final Set<String> _bombasActivas = {};
   final List<BombaModel> _bombasExtra = [];
@@ -48,16 +53,77 @@ class _FormularioScreenState extends State<FormularioScreen>
   static const Color _nightColor    = Color(0xFF7B1FA2);
   static const Color _chipActive    = Color(0xFFE3F2FD);
 
-  final List<_StepInfo> _steps = [
+  // ─── Definición completa de pasos (índices fijos, nunca cambian)
+  // 0  Inspección
+  // 1  Habilitación
+  // 2  Lect. Inicial
+  // 3  Bombas
+  // 4  Activos
+  // 5  Lect. Final      ← oculto en primer llenado
+  // 6  Desactivación    ← oculto en primer llenado
+  // 7  Operadores
+  static const List<_StepInfo> _allSteps = [
     _StepInfo('Inspección',    Icons.manage_search_rounded,        'Verificación del sistema'),
-    _StepInfo('Habilitación',     Icons.electrical_services_rounded,  'Tensiones y tableros'),
+    _StepInfo('Habilitación',  Icons.electrical_services_rounded,  'Tensiones y tableros'),
     _StepInfo('Lect. Inicial', Icons.play_circle_rounded,          'Valores al inicio'),
     _StepInfo('Bombas',        Icons.water_damage_rounded,         'Control de operación'),
     _StepInfo('Activos',       Icons.category_rounded,             'Equipos de estación'),
     _StepInfo('Lect. Final',   Icons.stop_circle_rounded,          'Valores al cierre'),
-    _StepInfo('Desactivación',       Icons.category_rounded,             'Equipos de estación'),
+    _StepInfo('Desactivación', Icons.electrical_services_rounded,  'Equipos de estación'),
     _StepInfo('Operadores',    Icons.badge_rounded,                'Personal y producción'),
   ];
+
+  // Índices que se ocultan en el primer llenado
+  static const Set<int> _indicesOcultosEnPrimerLlenado = {5, 6};
+
+  // ─── Getters dinámicos ────────────────────────────────────────────────────
+
+  /// Pasos que se muestran según el modo actual
+  List<_StepInfo> get _stepsVisibles {
+    if (_isPrimerLlenado) {
+      return [
+        for (int i = 0; i < _allSteps.length; i++)
+          if (!_indicesOcultosEnPrimerLlenado.contains(i)) _allSteps[i],
+      ];
+    }
+    return _allSteps;
+  }
+
+  /// Mapea el índice visible → índice real en _allSteps
+  int _indiceReal(int indiceVisible) {
+    if (!_isPrimerLlenado) return indiceVisible;
+    int real = 0;
+    int visible = 0;
+    while (real < _allSteps.length) {
+      if (!_indicesOcultosEnPrimerLlenado.contains(real)) {
+        if (visible == indiceVisible) return real;
+        visible++;
+      }
+      real++;
+    }
+    return real;
+  }
+
+  /// Páginas del PageView en el orden correcto según el modo
+  List<Widget> get _paginasVisibles {
+    final todas = [
+      _buildInspeccionStep(),   // 0
+      _buildHabilitacion(),     // 1
+      _buildLecturaInicialStep(), // 2
+      _buildBombasStep(),       // 3
+      _buildActivosStep(),      // 4
+      _buildLecturaFinalStep(), // 5 — oculto en primer llenado
+      _buildDesactivacion(),    // 6 — oculto en primer llenado
+      _buildOperadoresStep(),   // 7
+    ];
+    if (_isPrimerLlenado) {
+      return [
+        for (int i = 0; i < todas.length; i++)
+          if (!_indicesOcultosEnPrimerLlenado.contains(i)) todas[i],
+      ];
+    }
+    return todas;
+  }
 
   // ─── Lifecycle ───────
   @override
@@ -163,6 +229,7 @@ class _FormularioScreenState extends State<FormularioScreen>
                   final b = BombaModel(id: _nextBombaId.toString(), nombre: nombre, activa: true, numeroSerie: '', ultimoHorometro: 0);
                   _bombasExtra.add(b);
                   _bombasActivas.add(b.id.toString());
+                  _nextBombaId++;
                 });
               }
               Navigator.pop(ctx);
@@ -180,7 +247,7 @@ class _FormularioScreenState extends State<FormularioScreen>
       _showSnackbar(error, isError: true);
       return;
     }
-    if (_currentStep < _steps.length - 1) {
+    if (_currentStep < _stepsVisibles.length - 1) {
       setState(() => _currentStep++);
       _pageController.animateToPage(_currentStep,
           duration: const Duration(milliseconds: 400),
@@ -199,9 +266,12 @@ class _FormularioScreenState extends State<FormularioScreen>
     }
   }
 
-  // ─── Validación ───────
+  // ─── Validación ─────────────────────────────────────────────────────────────
+  // La validación trabaja con el índice REAL (_indiceReal) para que los case
+  // nunca cambien independientemente de cuántos pasos están visibles.
   String? _validateCurrentStep() {
-    switch (_currentStep) {
+    final realIndex = _indiceReal(_currentStep);
+    switch (realIndex) {
       case 0:
         if (_formData['INTERRUPTOR_10KV_ESTADO']?.isEmpty ?? true) {
           return 'Seleccione el estado del interruptor de llegada 10kV';
@@ -294,6 +364,10 @@ class _FormularioScreenState extends State<FormularioScreen>
         return null;
 
       case 6:
+      // Desactivación — sin validación obligatoria
+        return null;
+
+      case 7:
         final op1 = _formData['OPERADOR_TURNO_1'];
         if (op1 == null || op1.trim().isEmpty) return 'El operador del turno 1 es obligatorio';
         final soloLetras = RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$');
@@ -330,7 +404,6 @@ class _FormularioScreenState extends State<FormularioScreen>
         }
       }
 
-      // Solo se envían las bombas seleccionadas
       final bombeos = <Map<String, dynamic>>[];
       for (final bomba in _bombasSeleccionadas) {
         final encendido = _formData['bomba_${bomba.id}_encendido'];
@@ -479,16 +552,7 @@ class _FormularioScreenState extends State<FormularioScreen>
             child: PageView(
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildInspeccionStep(),
-                _buildHabilitacion(),
-                _buildLecturaInicialStep(),
-                _buildBombasStep(),
-                _buildActivosStep(),
-                _buildLecturaFinalStep(),
-                _buildDesactivacion(),
-                _buildOperadoresStep(),
-              ],
+              children: _paginasVisibles,
             ),
           ),
         ),
@@ -525,12 +589,53 @@ class _FormularioScreenState extends State<FormularioScreen>
                     style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 13)),
               ]),
             ),
+            // ── Toggle primer llenado / completo ──────────────────────────
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isPrimerLlenado = !_isPrimerLlenado;
+                  // Si el paso actual ya no existe en la nueva vista, volvemos al último visible
+                  if (_currentStep >= _stepsVisibles.length) {
+                    _currentStep = _stepsVisibles.length - 1;
+                  }
+                  _pageController.jumpToPage(_currentStep);
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                    color: _isPrimerLlenado
+                        ? Colors.white.withOpacity(0.2)
+                        : _accent.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: _isPrimerLlenado
+                            ? Colors.white.withOpacity(0.4)
+                            : _accent,
+                        width: 1.5)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(
+                    _isPrimerLlenado ? Icons.first_page_rounded : Icons.all_inclusive_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    _isPrimerLlenado ? '1° turno' : 'Completo',
+                    style: const TextStyle(color: Colors.white, fontSize: 12,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ]),
+              ),
+            ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(20)),
-              child: Text('${_currentStep + 1} / ${_steps.length}',
+              child: Text('${_currentStep + 1} / ${_stepsVisibles.length}',
                   style: const TextStyle(color: Colors.white, fontSize: 13,
                       fontWeight: FontWeight.w600)),
             ),
@@ -549,7 +654,7 @@ class _FormularioScreenState extends State<FormularioScreen>
         ClipRRect(
           borderRadius: BorderRadius.circular(2),
           child: LinearProgressIndicator(
-            value: (_currentStep + 1) / _steps.length,
+            value: (_currentStep + 1) / _stepsVisibles.length,
             backgroundColor: Colors.white.withOpacity(0.2),
             valueColor: const AlwaysStoppedAnimation<Color>(_accent),
             minHeight: 3,
@@ -559,7 +664,7 @@ class _FormularioScreenState extends State<FormularioScreen>
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-              children: List.generate(_steps.length, (i) {
+              children: List.generate(_stepsVisibles.length, (i) {
                 final isActive = i == _currentStep;
                 final isDone   = i < _currentStep;
                 return GestureDetector(
@@ -592,13 +697,13 @@ class _FormularioScreenState extends State<FormularioScreen>
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(
-                          isDone ? Icons.check_circle_rounded : _steps[i].icon,
+                          isDone ? Icons.check_circle_rounded : _stepsVisibles[i].icon,
                           size: 14,
                           color: isActive
                               ? _primary
                               : Colors.white.withOpacity(isDone ? 0.9 : 0.5)),
                       const SizedBox(width: 5),
-                      Text(_steps[i].title,
+                      Text(_stepsVisibles[i].title,
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
@@ -1075,14 +1180,13 @@ class _FormularioScreenState extends State<FormularioScreen>
     );
   }
 
-  // ─── PASO BOMBAS (nuevo) ──────────────────────────────────────────────────
+  // ─── PASO BOMBAS ──────────────────────────────────────────────────────────
   Widget _buildBombasStep() {
     return _buildStepContainer(
       title: 'Control de Bombas',
       subtitle: 'Seleccioná las bombas que operaron este turno',
       icon: Icons.water_damage_rounded,
       children: [
-        // ── Selector de chips ──
         _buildCard(children: [
           Row(children: [
             Container(
@@ -1148,7 +1252,6 @@ class _FormularioScreenState extends State<FormularioScreen>
                   ),
                 );
               }),
-              // Chip agregar
               GestureDetector(
                 onTap: _mostrarDialogoNuevaBomba,
                 child: Container(
@@ -1170,7 +1273,6 @@ class _FormularioScreenState extends State<FormularioScreen>
           ),
         ]),
 
-        // ── Cards solo de las bombas activas ──
         if (_bombasSeleccionadas.isEmpty)
           Container(
             width: double.infinity,
@@ -1199,7 +1301,6 @@ class _FormularioScreenState extends State<FormularioScreen>
     );
   }
 
-  // ─── Card individual de bomba ─────────────────────────────────────────────
   Widget _buildBombaCard(BombaModel bomba) {
     final encKey   = 'bomba_${bomba.id}_encendido';
     final apaKey   = 'bomba_${bomba.id}_apagado';
@@ -1215,7 +1316,6 @@ class _FormularioScreenState extends State<FormularioScreen>
             blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: Column(children: [
-        // Header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           decoration: BoxDecoration(
@@ -1255,7 +1355,6 @@ class _FormularioScreenState extends State<FormularioScreen>
                 ]),
               ),
             const SizedBox(width: 8),
-            // Quitar del selector
             GestureDetector(
               onTap: () => setState(() => _bombasActivas.remove(bomba.id.toString())),
               child: Container(
@@ -1269,7 +1368,6 @@ class _FormularioScreenState extends State<FormularioScreen>
             ),
           ]),
         ),
-        // Body
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(children: [
@@ -1403,20 +1501,20 @@ class _FormularioScreenState extends State<FormularioScreen>
             const Text('DESACTIVACIÓN',
                 style: TextStyle(fontSize: 11, color: _textSecondary, letterSpacing: 0.5)),
             const SizedBox(height: 12),
-            _buildStatusSelector('Interruptor',       'tablero_${_tableroSeleccionado!.id}_DESACTIVACIÓN_interruptor'),
-            _buildStatusSelector('Selector',          'tablero_${_tableroSeleccionado!.id}_DESACTIVACIÓN_selector'),
-            _buildStatusSelector('Parada emergencia', 'tablero_${_tableroSeleccionado!.id}_DESACTIVACIÓN_parada'),
-            _buildStatusSelector('Variador',          'tablero_${_tableroSeleccionado!.id}_DESACTIVACIÓN_variador'),
-            _buildStatusSelector('Alarma',            'tablero_${_tableroSeleccionado!.id}_DESACTIVACIÓN_alarma'),
+            _buildStatusSelector('Interruptor',       'tablero_${_tableroSeleccionado!.id}_DESACTIVACION_interruptor'),
+            _buildStatusSelector('Selector',          'tablero_${_tableroSeleccionado!.id}_DESACTIVACION_selector'),
+            _buildStatusSelector('Parada emergencia', 'tablero_${_tableroSeleccionado!.id}_DESACTIVACION_parada'),
+            _buildStatusSelector('Variador',          'tablero_${_tableroSeleccionado!.id}_DESACTIVACION_variador'),
+            _buildStatusSelector('Alarma',            'tablero_${_tableroSeleccionado!.id}_DESACTIVACION_alarma'),
           ]),
         _buildCard(children: [
-          const Text('Condición de habilitación',
+          const Text('Condición de desactivación',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
                   color: _textSecondary)),
           const SizedBox(height: 12),
-          _buildField(label: 'Estado telemetría', key: 'DESACTIVACIÓN_ESTADO_TELEMETRIA',
+          _buildField(label: 'Estado telemetría', key: 'DESACTIVACION_ESTADO_TELEMETRIA',
               icon: Icons.sensors_rounded, optional: true),
-          _buildField(label: 'Presión de ingreso', key: 'DESACTIVACIÓN_PRESION_INGRESO',
+          _buildField(label: 'Presión de ingreso', key: 'DESACTIVACION_PRESION_INGRESO',
               icon: Icons.speed_rounded,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               suffix: 'bar', optional: true),
@@ -1691,7 +1789,7 @@ class _FormularioScreenState extends State<FormularioScreen>
 
   // ─── Barra inferior ────
   Widget _buildBottomBar() {
-    final isLast = _currentStep == _steps.length - 1;
+    final isLast = _currentStep == _stepsVisibles.length - 1;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
       decoration: BoxDecoration(
