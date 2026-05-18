@@ -472,7 +472,9 @@ class _FormularioScreenState extends State<FormularioScreen>
         'totalizador_inicial':
         double.tryParse(_formData['TOTALIZADOR_INICIAL'] ?? '0') ?? 0.0,
         'lectura_inicial': {
-          'hora_registro':         _formData['HORA_INICIAL'] ?? '',
+          'hora_registro': _formData['HORA_INICIAL']?.isNotEmpty == true
+              ? _formData['HORA_INICIAL']
+              : null,
           'nivel_cisterna':        double.tryParse(_formData['NIVEL_CISTERNA_INICIAL'] ?? ''),
           'presion_linea':         double.tryParse(_formData['PRESION_LINEA_INICIAL'] ?? ''),
           'totalizador':           double.tryParse(_formData['TOTALIZADOR_INICIAL'] ?? ''),
@@ -483,7 +485,9 @@ class _FormularioScreenState extends State<FormularioScreen>
         'nivel_cisterna_final': double.tryParse(_formData['NIVEL_CISTERNA_FINAL'] ?? ''),
         'presion_linea_final':  double.tryParse(_formData['PRESION_LINEA_FINAL'] ?? ''),
         'lectura_final': {
-          'hora_registro':         _formData['HORA_FINAL'] ?? '',
+          'hora_registro': _formData['HORA_FINAL']?.isNotEmpty == true
+              ? _formData['HORA_FINAL']
+              : null,
           'nivel_cisterna':        double.tryParse(_formData['NIVEL_CISTERNA_FINAL'] ?? ''),
           'presion_linea':         double.tryParse(_formData['PRESION_LINEA_FINAL'] ?? ''),
           'totalizador':           double.tryParse(_formData['TOTALIZADOR_FINAL'] ?? ''),
@@ -1148,11 +1152,11 @@ class _FormularioScreenState extends State<FormularioScreen>
               );
               if (pickedTime == null) return;
               final formatted =
-                  '${pickedDate.day.toString().padLeft(2, '0')}/'
-                  '${pickedDate.month.toString().padLeft(2, '0')}/'
-                  '${pickedDate.year}  '
+                  '${pickedDate.year}-'
+                  '${pickedDate.month.toString().padLeft(2, '0')}-'
+                  '${pickedDate.day.toString().padLeft(2, '0')}T'
                   '${pickedTime.hour.toString().padLeft(2, '0')}:'
-                  '${pickedTime.minute.toString().padLeft(2, '0')}';
+                  '${pickedTime.minute.toString().padLeft(2, '0')}:00';
               setState(() {
                 _formData['HORA_INICIAL'] = formatted;
                 _getController('HORA_INICIAL').text = formatted;
@@ -1686,11 +1690,11 @@ class _FormularioScreenState extends State<FormularioScreen>
               );
               if (pickedTime == null) return;
               final formatted =
-                  '${pickedDate.day.toString().padLeft(2, '0')}/'
-                  '${pickedDate.month.toString().padLeft(2, '0')}/'
-                  '${pickedDate.year}  '
+                  '${pickedDate.year}-'
+                  '${pickedDate.month.toString().padLeft(2, '0')}-'
+                  '${pickedDate.day.toString().padLeft(2, '0')}T'
                   '${pickedTime.hour.toString().padLeft(2, '0')}:'
-                  '${pickedTime.minute.toString().padLeft(2, '0')}';
+                  '${pickedTime.minute.toString().padLeft(2, '0')}:00';
               setState(() {
                 _formData['HORA_FINAL'] = formatted;
                 _getController('HORA_FINAL').text = formatted;

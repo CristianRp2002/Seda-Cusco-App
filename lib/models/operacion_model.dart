@@ -6,6 +6,7 @@ class OperacionModel {
   final double produccionCalculada;
   final String interruptorLlegada10kvEstado;
   final double? transformadorTemperatura;
+  final String estado;
   final EstacionResumen estacion;
   final List<OperadorModel> operadores;
   final List<DetalleBombeoModel> detallesBombeo;
@@ -18,6 +19,7 @@ class OperacionModel {
     required this.produccionCalculada,
     required this.interruptorLlegada10kvEstado,
     this.transformadorTemperatura,
+    this.estado = 'INICIAL',
     required this.estacion,
     required this.operadores,
     required this.detallesBombeo,
@@ -41,6 +43,7 @@ class OperacionModel {
           .toList(),
     );
   }
+  bool get esCompleto => estado == 'COMPLETO';
 }
 
 class EstacionResumen {

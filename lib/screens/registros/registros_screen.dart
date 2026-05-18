@@ -29,14 +29,15 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
   ];
 
   // Colores
-  static const Color _primary      = Color(0xFF0D47A1);
-  static const Color _accent       = Color(0xFF00BCD4);
-  static const Color _surface      = Color(0xFFF8FAFF);
-  static const Color _cardBg       = Colors.white;
-  static const Color _textPrimary  = Color(0xFF0A1628);
-  static const Color _textSec      = Color(0xFF5C6B8A);
-  static const Color _border       = Color(0xFFDDE3F0);
-  static const Color _success      = Color(0xFF00897B);
+  static const Color _primary     = Color(0xFF0D47A1);
+  static const Color _accent      = Color(0xFF00BCD4);
+  static const Color _surface     = Color(0xFFF8FAFF);
+  static const Color _cardBg      = Colors.white;
+  static const Color _textPrimary = Color(0xFF0A1628);
+  static const Color _textSec     = Color(0xFF5C6B8A);
+  static const Color _border      = Color(0xFFDDE3F0);
+  static const Color _success     = Color(0xFF00897B);
+  static const Color _warning     = Color(0xFFF57C00);
 
   @override
   void initState() {
@@ -46,7 +47,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     _cargar();
   }
 
-  // ── Carga de datos ─────────────────────────────────────────────────────────
+  // ── Carga de datos ──────────────────────────────────────────────────────────
   Future<void> _cargar() async {
     setState(() { _isLoading = true; _error = null; });
 
@@ -74,7 +75,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     }
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Helpers ─────────────────────────────────────────────────────────────────
   String _formatFecha(DateTime fecha) {
     return '${fecha.day.toString().padLeft(2, '0')}/'
         '${fecha.month.toString().padLeft(2, '0')}/'
@@ -83,7 +84,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
 
   String _formatNum(double n) => n.toStringAsFixed(2);
 
-  // ── Build ──────────────────────────────────────────────────────────────────
+  // ── Build ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -96,7 +97,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     );
   }
 
-  // ── Header ─────────────────────────────────────────────────────────────────
+  // ── Header ───────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
     return Container(
       decoration: const BoxDecoration(
@@ -119,7 +120,6 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
                       fontWeight: FontWeight.w700, letterSpacing: -0.3),
                 ),
               ),
-              // Selector de año
               _buildAnioSelector(),
             ]),
             const SizedBox(height: 4),
@@ -163,7 +163,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     );
   }
 
-  // ── Filtro de meses ────────────────────────────────────────────────────────
+  // ── Filtro de meses ──────────────────────────────────────────────────────────
   Widget _buildFiltrosMes() {
     return Container(
       color: _primary,
@@ -173,12 +173,14 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            // Chip "Todos"
-            _buildMesChip(label: 'Todos', isSelected: _mesSeleccionado == null,
-                onTap: () {
-                  setState(() => _mesSeleccionado = null);
-                  _cargar();
-                }),
+            _buildMesChip(
+              label: 'Todos',
+              isSelected: _mesSeleccionado == null,
+              onTap: () {
+                setState(() => _mesSeleccionado = null);
+                _cargar();
+              },
+            ),
             const SizedBox(width: 8),
             ...List.generate(12, (i) {
               final mes = i + 1;
@@ -229,7 +231,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     );
   }
 
-  // ── Cuerpo principal ───────────────────────────────────────────────────────
+  // ── Cuerpo principal ─────────────────────────────────────────────────────────
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -240,8 +242,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.error_outline_rounded, size: 48,
-                color: Colors.red.shade300),
+            Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade300),
             const SizedBox(height: 16),
             Text(_error!, textAlign: TextAlign.center,
                 style: const TextStyle(color: _textSec)),
@@ -260,16 +261,14 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     if (_filtradas.isEmpty) {
       return Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.assignment_outlined, size: 60,
-              color: _textSec.withOpacity(0.3)),
+          Icon(Icons.assignment_outlined, size: 60, color: _textSec.withOpacity(0.3)),
           const SizedBox(height: 16),
           const Text('Sin registros para este período',
               style: TextStyle(fontSize: 16, color: _textSec,
                   fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
           Text('Prueba seleccionando otro mes o año.',
-              style: TextStyle(fontSize: 13,
-                  color: _textSec.withOpacity(0.7))),
+              style: TextStyle(fontSize: 13, color: _textSec.withOpacity(0.7))),
         ]),
       );
     }
@@ -289,7 +288,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     );
   }
 
-  // ── Tarjeta de registro ────────────────────────────────────────────────────
+  // ── Tarjeta de registro ──────────────────────────────────────────────────────
   Widget _buildCard(OperacionModel op) {
     final operador1 = op.operadores.isNotEmpty
         ? op.operadores
@@ -320,6 +319,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
         ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
         // ── Header tarjeta ──
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
@@ -331,6 +331,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
             border: Border(bottom: BorderSide(color: _border)),
           ),
           child: Row(children: [
+            // Ícono estación
             Container(
               padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
@@ -344,6 +345,8 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
               child: const Icon(Icons.water_rounded, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 12),
+
+            // Nombre y fecha
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
@@ -360,6 +363,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
                 ),
               ]),
             ),
+
             // Badge producción
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -375,6 +379,41 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
                   '${_formatNum(op.produccionCalculada)} m³',
                   style: const TextStyle(fontSize: 12, color: _success,
                       fontWeight: FontWeight.w700),
+                ),
+              ]),
+            ),
+
+            // Badge estado ← NUEVO
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: op.esCompleto
+                    ? _success.withOpacity(0.1)
+                    : _warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: op.esCompleto
+                      ? _success.withOpacity(0.3)
+                      : _warning.withOpacity(0.3),
+                ),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(
+                  op.esCompleto
+                      ? Icons.check_circle_rounded
+                      : Icons.pending_rounded,
+                  size: 13,
+                  color: op.esCompleto ? _success : _warning,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  op.esCompleto ? 'Completo' : 'Inicial',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: op.esCompleto ? _success : _warning,
+                  ),
                 ),
               ]),
             ),
@@ -447,8 +486,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
         Icon(icon, size: 18, color: color.withOpacity(0.7)),
         const SizedBox(height: 4),
         Text(value,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                color: color),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color),
             textAlign: TextAlign.center),
         const SizedBox(height: 2),
         Text(label,
@@ -459,7 +497,8 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
   }
 
   Widget _buildDivider() {
-    return Container(width: 1, height: 40, color: _border,
+    return Container(
+        width: 1, height: 40, color: _border,
         margin: const EdgeInsets.symmetric(horizontal: 8));
   }
 
@@ -473,8 +512,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
       child: Row(children: [
         Icon(icon, size: 15, color: _textSec.withOpacity(0.6)),
         const SizedBox(width: 8),
-        Text('$label: ',
-            style: const TextStyle(fontSize: 12, color: _textSec)),
+        Text('$label: ', style: const TextStyle(fontSize: 12, color: _textSec)),
         Expanded(
           child: Text(value,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
