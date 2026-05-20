@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../core/api_config.dart';
 import '../models/operacion_model.dart';
+import '../models/estacion_model.dart';
 
 class OperacionService {
-  // ── REGISTRAR (ya existente) ──────────────────────────────────────────────
   static Future<Map<String, dynamic>> registrar({
     required String token,
     required Map<String, dynamic> payload,
@@ -46,10 +46,6 @@ class OperacionService {
   }
 
   // ── LISTAR OPERACIONES ────────────────────────────────────────────────────
-  /// Obtiene los partes diarios con filtros opcionales.
-  /// [mes]       → número de mes como string, ej: '5'
-  /// [anio]      → año como string, ej: '2025'
-  /// [estacionId] → UUID de la estación (opcional)
   static Future<List<OperacionModel>> getOperaciones({
     required String token,
     String? mes,
@@ -83,6 +79,30 @@ class OperacionService {
     } catch (e) {
       debugPrint('❌ Excepción en getOperaciones: $e');
       return [];
+    }
+  }
+  // ── OBTENER ESTACIÓN POR ID ───────────────────────────────────────────────
+  static Future<EstacionModel?> getEstacion({
+    required String token,
+    required String estacionId,
+  }) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.estaciones}/$estacionId');
+      final response = await http.get(
+        uri,
+        headers: ApiConfig.headers(token: token),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return EstacionModel.fromJson(data);
+      } else {
+        debugPrint('❌ Error al obtener estación: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('❌ Excepción en getEstacion: $e');
+      return null;
     }
   }
 }

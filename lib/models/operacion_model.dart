@@ -10,6 +10,8 @@ class OperacionModel {
   final EstacionResumen estacion;
   final List<OperadorModel> operadores;
   final List<DetalleBombeoModel> detallesBombeo;
+  final LecturaModel lecturaInicial;
+  final LecturaModel lecturaFinal;
 
   OperacionModel({
     required this.id,
@@ -23,9 +25,14 @@ class OperacionModel {
     required this.estacion,
     required this.operadores,
     required this.detallesBombeo,
+    required this.lecturaInicial,
+    required this.lecturaFinal,
+
   });
 
   factory OperacionModel.fromJson(Map<String, dynamic> json) {
+    print('JSON OPERACION:');
+    print(json);
     return OperacionModel(
       id: json['id']?.toString() ?? '',
       fechaFolio: DateTime.tryParse(json['fecha_folio']?.toString() ?? '') ?? DateTime.now(),
@@ -34,6 +41,8 @@ class OperacionModel {
       produccionCalculada: double.tryParse(json['produccion_calculada']?.toString() ?? '0') ?? 0,
       interruptorLlegada10kvEstado: json['interruptor_llegada_10kv_estado']?.toString() ?? '',
       transformadorTemperatura: double.tryParse(json['transformador_temperatura']?.toString() ?? ''),
+      lecturaInicial: LecturaModel.fromJson(json['lectura_inicial']),
+      lecturaFinal: LecturaModel.fromJson(json['lectura_final']),
       estacion: EstacionResumen.fromJson(json['estacion'] ?? {}),
       operadores: (json['operadores'] as List<dynamic>? ?? [])
           .map((o) => OperadorModel.fromJson(o))
@@ -75,13 +84,13 @@ class OperadorModel {
 }
 
 class DetalleBombeoModel {
-  final String? bombaId;        // ← nuevo
+  final String? bombaId;
   final String? nombreBomba;
   final double horasBombeo;
-  final String? encendido;      // ← nuevo
-  final String? apagado;        // ← nuevo
-  final double? horometroInicial; // ← nuevo
-  final double? horometroFinal;   // ← nuevo
+  final String? encendido;
+  final String? apagado;
+  final double? horometroInicial;
+  final double? horometroFinal;
 
   DetalleBombeoModel({
     this.bombaId,
@@ -102,6 +111,47 @@ class DetalleBombeoModel {
       apagado: json['apagado']?.toString(),
       horometroInicial: double.tryParse(json['horometro_inicial']?.toString() ?? ''),
       horometroFinal: double.tryParse(json['horometro_final']?.toString() ?? ''),
+    );
+  }
+}
+class LecturaModel {
+  final String? horaRegistro;
+  final double? nivelCisterna;
+  final double? presionLinea;
+  final double? presionJatunHuaylla;
+  final double? totalizador;
+
+  LecturaModel({
+    this.horaRegistro,
+    this.nivelCisterna,
+    this.presionLinea,
+    this.presionJatunHuaylla,
+    this.totalizador,
+  });
+
+  factory LecturaModel.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return LecturaModel();
+    }
+
+    return LecturaModel(
+      horaRegistro: json['hora_registro']?.toString(),
+
+      nivelCisterna: double.tryParse(
+        json['nivel_cisterna']?.toString() ?? '',
+      ),
+
+      presionLinea: double.tryParse(
+        json['presion_linea']?.toString() ?? '',
+      ),
+
+      presionJatunHuaylla: double.tryParse(
+        json['presion_jatun_huaylla']?.toString() ?? '',
+      ),
+
+      totalizador: double.tryParse(
+        json['totalizador']?.toString() ?? '',
+      ),
     );
   }
 }

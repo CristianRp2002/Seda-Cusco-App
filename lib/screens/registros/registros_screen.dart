@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/operacion_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/operacion_service.dart';
+import '../formulario/formulario_screen.dart';
 
 class RegistrosScreen extends StatefulWidget {
   const RegistrosScreen({super.key});
@@ -20,7 +21,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
   late int _anioSeleccionado;
   int? _mesSeleccionado;
 
-  // ── Estado filtros avanzados ─────────────────────────────────────────────────
+  // ── Estado filtros avanzados
   bool _modoAvanzado = false;
 
   static const _meses = [
@@ -28,7 +29,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
   ];
 
-  // ── Colores ──────────────────────────────────────────────────────────────────
+  // ── Colores
   static const Color _primary     = Color(0xFF0D47A1);
   static const Color _accent      = Color(0xFF00BCD4);
   static const Color _surface     = Color(0xFFF8FAFF);
@@ -47,7 +48,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     _cargar();
   }
 
-  // ── Carga ────────────────────────────────────────────────────────────────────
+  // ── Carga
   Future<void> _cargar() async {
     setState(() { _isLoading = true; _error = null; });
 
@@ -74,7 +75,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     }
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
+  // ── Helpers
   String _formatFecha(DateTime fecha) =>
       '${fecha.day.toString().padLeft(2, '0')}/'
           '${fecha.month.toString().padLeft(2, '0')}/'
@@ -92,7 +93,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     return '${buffer.toString()}.$decPart';
   }
 
-  // ── Lógica de filtros rápidos ────────────────────────────────────────────────
+  // ── Lógica de filtros rápidos
   bool _esSeleccionHoy() {
     if (_modoAvanzado) return false;
     final hoy = DateTime.now();
@@ -100,7 +101,6 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
   }
 
   bool _esSeleccionAyer() {
-    // Implementar si tu API soporta filtro por día
     return false;
   }
 
@@ -273,7 +273,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     );
   }
 
-  // ── Build ────────────────────────────────────────────────────────────────────
+  // ── Build
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -286,7 +286,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     );
   }
 
-  // ── Header ───────────────────────────────────────────────────────────────────
+  // ── Header
   Widget _buildHeader() {
     final completos  = _operaciones.where((o) => o.esCompleto).length;
     final pendientes = _operaciones.where((o) => !o.esCompleto).length;
@@ -483,7 +483,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     );
   }
 
-  // ── Cuerpo ───────────────────────────────────────────────────────────────────
+  // ── Cuerpo
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -550,7 +550,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
     );
   }
 
-  // ── Tarjeta ──────────────────────────────────────────────────────────────────
+  // ── Tarjeta
   Widget _buildCard(OperacionModel op) {
     final operador1 = op.operadores.isNotEmpty
         ? op.operadores
@@ -567,32 +567,69 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
         .toSet()
         .join(', ');
 
-    final produccionValida =
-        op.esCompleto && op.produccionCalculada >= 0;
-
+    final produccionValida = op.esCompleto && op.produccionCalculada >= 0;
     final folioStr = op.id != null ? '#${op.id}' : '';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _border, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: _primary.withAlpha(15),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+    return GestureDetector(
+      onTap: op.esCompleto
+          ? null
+          : () async {
+        // Mostrar loading
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const Center(
+            child: CircularProgressIndicator(),
           ),
-        ],
-      ),
-      child: Column(
+        );
+
+        final token = context.read<AuthProvider>().token ?? '';
+        final estacion = await OperacionService.getEstacion(
+          token: token,
+          estacionId: op.estacion.id,
+        );
+
+        if (!mounted) return;
+        Navigator.pop(context); // cierra el loading
+
+        if (estacion == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se pudo cargar la estación'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FormularioScreen(estacion: estacion,
+              operacionExistente: op,),
+          ),
+        ).then((_) => _cargar());
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: _cardBg,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _border, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: _primary.withAlpha(15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
             // ── Header tarjeta ──
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 13),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -600,20 +637,16 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
                     _accent.withAlpha(8),
                   ],
                 ),
-                borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16)),
-                border:
-                Border(bottom: BorderSide(color: _border)),
+                borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(16)),
+                border: Border(bottom: BorderSide(color: _border)),
               ),
               child: Row(children: [
                 Container(
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF0D47A1),
-                        Color(0xFF1565C0)
-                      ],
+                      colors: [Color(0xFF0D47A1), Color(0xFF1565C0)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -626,120 +659,133 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
 
                 Expanded(
                   child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          Flexible(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Flexible(
+                          child: Text(
+                            op.estacion.nombre,
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: _textPrimary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (folioStr.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _primary.withAlpha(18),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                             child: Text(
-                              op.estacion.nombre,
-                              style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: _textPrimary),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              folioStr,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: _primary.withAlpha(200),
+                              ),
                             ),
                           ),
-                          if (folioStr.isNotEmpty) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: _primary.withAlpha(18),
-                                borderRadius:
-                                BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                folioStr,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color:
-                                  _primary.withAlpha(200),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ]),
-                        const SizedBox(height: 2),
-                        Text(
-                          _formatFecha(op.fechaFolio),
-                          style: const TextStyle(
-                              fontSize: 12, color: _textSec),
-                        ),
+                        ],
                       ]),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatFecha(op.fechaFolio),
+                        style:
+                        const TextStyle(fontSize: 12, color: _textSec),
+                      ),
+                    ],
+                  ),
                 ),
 
-                if (produccionValida) ...[
+                // Badges de producción y estado
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (produccionValida) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _success.withAlpha(26),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: _success.withAlpha(77)),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.water_drop_rounded,
+                            size: 13, color: _success),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_formatNum(op.produccionCalculada)} m³',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: _success,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ]),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: _success.withAlpha(26),
+                      color: op.esCompleto
+                          ? _success.withAlpha(26)
+                          : _warning.withAlpha(26),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                          color: _success.withAlpha(77)),
+                        color: op.esCompleto
+                            ? _success.withAlpha(77)
+                            : _warning.withAlpha(77),
+                      ),
                     ),
-                    child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.water_drop_rounded,
-                              size: 13, color: _success),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${_formatNum(op.produccionCalculada)} m³',
-                            style: const TextStyle(
-                                fontSize: 12,
-                                color: _success,
-                                fontWeight: FontWeight.w700),
-                          ),
-                        ]),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: op.esCompleto
-                        ? _success.withAlpha(26)
-                        : _warning.withAlpha(26),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: op.esCompleto
-                          ? _success.withAlpha(77)
-                          : _warning.withAlpha(77),
-                    ),
-                  ),
-                  child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          op.esCompleto
-                              ? Icons.check_circle_rounded
-                              : Icons.pending_rounded,
-                          size: 13,
-                          color: op.esCompleto
-                              ? _success
-                              : _warning,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(
+                        op.esCompleto
+                            ? Icons.check_circle_rounded
+                            : Icons.pending_rounded,
+                        size: 13,
+                        color: op.esCompleto ? _success : _warning,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        op.esCompleto ? 'Completo' : 'Inicial',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: op.esCompleto ? _success : _warning,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          op.esCompleto ? 'Completo' : 'Inicial',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: op.esCompleto
-                                ? _success
-                                : _warning,
-                          ),
-                        ),
-                      ]),
-                ),
+                      ),
+                    ]),
+                  ),
+                ]),
               ]),
             ),
+
+            // ── Aviso "toca para completar" si está pendiente ──
+            if (!op.esCompleto)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Row(children: [
+                  const Icon(Icons.edit_rounded, size: 13, color: _warning),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Toca para completar el registro',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _warning.withAlpha(200),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(Icons.chevron_right_rounded,
+                      size: 16, color: _warning.withAlpha(200)),
+                ]),
+              ),
 
             // ── Body tarjeta ──
             Padding(
@@ -749,8 +795,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
                   _buildMetric(
                     icon: Icons.analytics_outlined,
                     label: 'Totalizador ini.',
-                    value:
-                    '${_formatNum(op.totalizadorInicial)} m³',
+                    value: '${_formatNum(op.totalizadorInicial)} m³',
                     color: _primary,
                   ),
                   _buildDivider(),
@@ -773,8 +818,7 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
                   ),
                 ]),
 
-                if (operador1 != '—' ||
-                    bombasNombres.isNotEmpty) ...[
+                if (operador1 != '—' || bombasNombres.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   const Divider(height: 1, color: _border),
                   const SizedBox(height: 12),
@@ -795,7 +839,9 @@ class _RegistrosScreenState extends State<RegistrosScreen> {
                   ),
               ]),
             ),
-          ]),
+          ],
+        ),
+      ),
     );
   }
 

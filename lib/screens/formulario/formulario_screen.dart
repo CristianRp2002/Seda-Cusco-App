@@ -5,10 +5,12 @@ import '../../core/theme.dart';
 import '../../models/estacion_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/operacion_service.dart';
+import '../../models/operacion_model.dart';
 
 class FormularioScreen extends StatefulWidget {
   final EstacionModel estacion;
-  const FormularioScreen({super.key, required this.estacion});
+  final OperacionModel? operacionExistente;
+  const FormularioScreen({super.key, required this.estacion, this.operacionExistente,});
 
   @override
   State<FormularioScreen> createState() => _FormularioScreenState();
@@ -25,10 +27,6 @@ class _FormularioScreenState extends State<FormularioScreen>
   int _turnoEditor = 1;
   final Set<int> _turnosBloqueados = {};
   bool _formInitialized = false;
-
-  // ── Bandera de primer llenado ──────────────────────────────────────────────
-  // Cuando es true, los pasos "Lect. Final" (índice 5) y "Desactivación"
-  // (índice 6) se ocultan del stepper y del PageView.
   bool _isPrimerLlenado = true;
 
   TableroModel? _tableroSeleccionado;
@@ -52,16 +50,6 @@ class _FormularioScreenState extends State<FormularioScreen>
   static const Color _error         = Color(0xFFD32F2F);
   static const Color _nightColor    = Color(0xFF7B1FA2);
   static const Color _chipActive    = Color(0xFFE3F2FD);
-
-  // ─── Definición completa de pasos (índices fijos, nunca cambian)
-  // 0  Inspección
-  // 1  Habilitación
-  // 2  Lect. Inicial
-  // 3  Bombas
-  // 4  Activos
-  // 5  Lect. Final      ← oculto en primer llenado
-  // 6  Desactivación    ← oculto en primer llenado
-  // 7  Operadores
   static const List<_StepInfo> _allSteps = [
     _StepInfo('Inspección',    Icons.manage_search_rounded,        'Verificación del sistema'),
     _StepInfo('Habilitación',  Icons.electrical_services_rounded,  'Tensiones y tableros'),
@@ -107,14 +95,14 @@ class _FormularioScreenState extends State<FormularioScreen>
   /// Páginas del PageView en el orden correcto según el modo
   List<Widget> get _paginasVisibles {
     final todas = [
-      _buildInspeccionStep(),   // 0
-      _buildHabilitacion(),     // 1
-      _buildLecturaInicialStep(), // 2
-      _buildBombasStep(),       // 3
-      _buildActivosStep(),      // 4
-      _buildLecturaFinalStep(), // 5 — oculto en primer llenado
-      _buildDesactivacion(),    // 6 — oculto en primer llenado
-      _buildOperadoresStep(),   // 7
+      _buildInspeccionStep(),
+      _buildHabilitacion(),
+      _buildLecturaInicialStep(),
+      _buildBombasStep(),
+      _buildActivosStep(),
+      _buildLecturaFinalStep(),
+      _buildDesactivacion(),
+      _buildOperadoresStep(),
     ];
     if (_isPrimerLlenado) {
       return [
@@ -149,23 +137,115 @@ class _FormularioScreenState extends State<FormularioScreen>
   }
 
   void _initializeFormData() {
+    final op = widget.operacionExistente;
+    if (op != null) {
+      _isPrimerLlenado = false;
+
+      // Paso 0 — Inspección
+      _formData['INTERRUPTOR_10KV_ESTADO'] = op.interruptorLlegada10kvEstado;
+      if (op.transformadorTemperatura != null) {
+        _formData['TRANSFORMADOR_TEMPERATURA'] =
+            op.transformadorTemperatura!.toString();
+      }
+
+      // Paso 2 — Lectura inicial (todos los campos)
+      _formData['TOTALIZADOR_INICIAL'] = op.totalizadorInicial.toString();
+      if (op.lecturaInicial.horaRegistro != null) {
+        _formData['HORA_INICIAL'] = op.lecturaInicial.horaRegistro!;
+        _getController('HORA_INICIAL').text = op.lecturaInicial.horaRegistro!;
+      }
+      if (op.lecturaInicial.nivelCisterna != null) {
+        _formData['NIVEL_CISTERNA_INICIAL'] =
+            op.lecturaInicial.nivelCisterna!.toString();
+      }
+      if (op.lecturaInicial.presionLinea != null) {
+        _formData['PRESION_LINEA_INICIAL'] =
+            op.lecturaInicial.presionLinea!.toString();
+      }
+      if (op.lecturaInicial.presionJatunHuaylla != null) {
+        _formData['PRESION_JATUN_HUAYLLA_INICIAL'] =
+            op.lecturaInicial.presionJatunHuaylla!.toString();
+      }
+      if (op.lecturaInicial.totalizador != null) {
+        _formData['TOTALIZADOR_INICIAL'] =
+            op.lecturaInicial.totalizador!.toString();
+      }
+
+      // Paso 5 — Lectura final (todos los campos)
+      if (op.totalizadorFinal != 0) {
+        _formData['TOTALIZADOR_FINAL'] = op.totalizadorFinal.toString();
+      }
+      if (op.lecturaFinal.horaRegistro != null) {
+        _formData['HORA_FINAL'] = op.lecturaFinal.horaRegistro!;
+        _getController('HORA_FINAL').text = op.lecturaFinal.horaRegistro!;
+      }
+      if (op.lecturaFinal.nivelCisterna != null) {
+        _formData['NIVEL_CISTERNA_FINAL'] =
+            op.lecturaFinal.nivelCisterna!.toString();
+      }
+      if (op.lecturaFinal.presionLinea != null) {
+        _formData['PRESION_LINEA_FINAL'] =
+            op.lecturaFinal.presionLinea!.toString();
+      }
+      if (op.lecturaFinal.presionJatunHuaylla != null) {
+        _formData['PRESION_JATUN_HUAYLLA_FINAL'] =
+            op.lecturaFinal.presionJatunHuaylla!.toString();
+      }
+      if (op.lecturaFinal.totalizador != null) {
+        _formData['TOTALIZADOR_FINAL'] =
+            op.lecturaFinal.totalizador!.toString();
+      }
+
+      // Paso 7 — Operadores
+      for (int i = 0; i < op.operadores.length; i++) {
+        _formData['OPERADOR_TURNO_${i + 1}'] = op.operadores[i].nombreOperador;
+      }
+    }
+
+    // Horómetros por defecto
     for (var bomba in (widget.estacion.bombas ?? [])) {
-      _formData['bomba_${bomba.id}_horometro_inicial'] =
-          bomba.ultimoHorometro.toString();
+      _formData.putIfAbsent(
+        'bomba_${bomba.id}_horometro_inicial',
+            () => bomba.ultimoHorometro.toString(),
+      );
+    }
+
+    // Bombas existentes
+    if (op != null) {
+      for (final detalle in op.detallesBombeo) {
+        final id = detalle.bombaId;
+        if (id == null) continue;
+        _bombasActivas.add(id);
+        if (detalle.encendido != null) {
+          _formData['bomba_${id}_encendido'] = detalle.encendido!;
+          _getController('bomba_${id}_encendido').text = detalle.encendido!;
+        }
+        if (detalle.apagado != null) {
+          _formData['bomba_${id}_apagado'] = detalle.apagado!;
+          _getController('bomba_${id}_apagado').text = detalle.apagado!;
+        }
+        if (detalle.horometroInicial != null) {
+          _formData['bomba_${id}_horometro_inicial'] =
+              detalle.horometroInicial!.toString();
+        }
+        if (detalle.horometroFinal != null) {
+          _formData['bomba_${id}_horometro_final'] =
+              detalle.horometroFinal!.toString();
+        }
+      }
     }
     for (var tablero in (widget.estacion.tableros ?? [])) {
       for (final momento in ['HABILITACION', 'DESACTIVACION']) {
         final prefix = 'tablero_${tablero.id}_$momento';
-        _formData['${prefix}_interruptor'] = 'OK';
-        _formData['${prefix}_selector']    = 'OK';
-        _formData['${prefix}_parada']      = 'OK';
-        _formData['${prefix}_variador']    = 'OK';
-        _formData['${prefix}_alarma']      = 'OK';
+        for (final campo in ['interruptor', 'selector', 'parada', 'variador', 'alarma']) {
+          _formData.putIfAbsent('${prefix}_$campo', () => 'OK');
+        }
       }
     }
     final user = context.read<AuthProvider>().user;
     for (int i = 1; i <= 3; i++) {
-      if (i == _turnoEditor && user != null) {
+      if (i == _turnoEditor && user != null &&
+          (_formData['OPERADOR_TURNO_$i']?.isEmpty ?? true)) {
         _formData['OPERADOR_TURNO_$i'] = user.nombreCompleto;
         _turnosBloqueados.add(i);
       }
@@ -266,9 +346,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     }
   }
 
-  // ─── Validación ─────────────────────────────────────────────────────────────
-  // La validación trabaja con el índice REAL (_indiceReal) para que los case
-  // nunca cambien independientemente de cuántos pasos están visibles.
+  // ─── Validación ───
   String? _validateCurrentStep() {
     final realIndex = _indiceReal(_currentStep);
     switch (realIndex) {
@@ -598,7 +676,6 @@ class _FormularioScreenState extends State<FormularioScreen>
               onTap: () {
                 setState(() {
                   _isPrimerLlenado = !_isPrimerLlenado;
-                  // Si el paso actual ya no existe en la nueva vista, volvemos al último visible
                   if (_currentStep >= _stepsVisibles.length) {
                     _currentStep = _stepsVisibles.length - 1;
                   }
@@ -800,8 +877,8 @@ class _FormularioScreenState extends State<FormularioScreen>
         ]),
         const SizedBox(height: 6),
         TextFormField(
-          controller: readOnly ? _getController(key) : null,
-          initialValue: readOnly ? null : (_formData[key] ?? ''),
+          controller: _getController(key),
+          initialValue: null,
           readOnly: readOnly,
           onTap: onTap,
           keyboardType: keyboardType,
@@ -1184,7 +1261,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     );
   }
 
-  // ─── PASO BOMBAS ──────────────────────────────────────────────────────────
+  // ─── PASO BOMBAS
   Widget _buildBombasStep() {
     return _buildStepContainer(
       title: 'Control de Bombas',
