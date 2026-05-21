@@ -152,7 +152,18 @@ class _FormularioScreenState extends State<FormularioScreen>
       _formData['TOTALIZADOR_INICIAL'] = op.totalizadorInicial.toString();
       if (op.lecturaInicial.horaRegistro != null) {
         _formData['HORA_INICIAL'] = op.lecturaInicial.horaRegistro!;
-        _getController('HORA_INICIAL').text = op.lecturaInicial.horaRegistro!;
+        try {
+          final dt = DateTime.parse(op.lecturaInicial.horaRegistro!);
+          _formData['HORA_INICIAL_DISPLAY'] =
+          '${dt.day.toString().padLeft(2, '0')}/'
+              '${dt.month.toString().padLeft(2, '0')}/'
+              '${dt.year}  '
+              '${dt.hour.toString().padLeft(2, '0')}:'
+              '${dt.minute.toString().padLeft(2, '0')}';
+          _getController('HORA_INICIAL').text = _formData['HORA_INICIAL_DISPLAY']!;
+        } catch (_) {
+          _getController('HORA_INICIAL').text = op.lecturaInicial.horaRegistro!;
+        }
       }
       if (op.lecturaInicial.nivelCisterna != null) {
         _formData['NIVEL_CISTERNA_INICIAL'] =
@@ -177,7 +188,18 @@ class _FormularioScreenState extends State<FormularioScreen>
       }
       if (op.lecturaFinal.horaRegistro != null) {
         _formData['HORA_FINAL'] = op.lecturaFinal.horaRegistro!;
-        _getController('HORA_FINAL').text = op.lecturaFinal.horaRegistro!;
+        try {
+          final dt = DateTime.parse(op.lecturaFinal.horaRegistro!);
+          _formData['HORA_FINAL_DISPLAY'] =
+          '${dt.day.toString().padLeft(2, '0')}/'
+              '${dt.month.toString().padLeft(2, '0')}/'
+              '${dt.year}  '
+              '${dt.hour.toString().padLeft(2, '0')}:'
+              '${dt.minute.toString().padLeft(2, '0')}';
+          _getController('HORA_FINAL').text = _formData['HORA_FINAL_DISPLAY']!;
+        } catch (_) {
+          _getController('HORA_FINAL').text = op.lecturaFinal.horaRegistro!;
+        }
       }
       if (op.lecturaFinal.nivelCisterna != null) {
         _formData['NIVEL_CISTERNA_FINAL'] =
@@ -217,12 +239,20 @@ class _FormularioScreenState extends State<FormularioScreen>
         if (id == null) continue;
         _bombasActivas.add(id);
         if (detalle.encendido != null) {
-          _formData['bomba_${id}_encendido'] = detalle.encendido!;
-          _getController('bomba_${id}_encendido').text = detalle.encendido!;
+          final enc = detalle.encendido!;
+          final horaEnc = '${enc.hour.toString().padLeft(2, '0')}:${enc.minute.toString().padLeft(2, '0')}';
+
+          _formData['bomba_${id}_encendido'] = horaEnc;          // ← para mostrar y validar
+          _formData['bomba_${id}_encendido_iso'] = detalle.encendido!.toIso8601String(); // ← para enviar
+          _getController('bomba_${id}_encendido').text = horaEnc;
         }
         if (detalle.apagado != null) {
-          _formData['bomba_${id}_apagado'] = detalle.apagado!;
-          _getController('bomba_${id}_apagado').text = detalle.apagado!;
+          final apa = detalle.apagado!;
+          final horaApa = '${apa.hour.toString().padLeft(2, '0')}:${apa.minute.toString().padLeft(2, '0')}';
+
+          _formData['bomba_${id}_apagado'] = horaApa;
+          _formData['bomba_${id}_apagado_iso'] = detalle.apagado!.toIso8601String();
+          _getController('bomba_${id}_apagado').text = horaApa;
         }
         if (detalle.horometroInicial != null) {
           _formData['bomba_${id}_horometro_inicial'] =
@@ -461,6 +491,17 @@ class _FormularioScreenState extends State<FormularioScreen>
         return null;
     }
   }
+  String _horaAIso(String? horaHHmm, {bool esSiguienteDia = false}) {
+    if (horaHHmm == null || horaHHmm.isEmpty) return '';
+    final parts = horaHHmm.split(':');
+    final hora  = int.tryParse(parts[0]) ?? 0;
+    final min   = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+    final base  = DateTime.now();
+    final fecha = esSiguienteDia
+        ? DateTime(base.year, base.month, base.day + 1, hora, min)
+        : DateTime(base.year, base.month, base.day, hora, min);
+    return fecha.toIso8601String();
+  }
 
   // ─── Guardar
   Future<void> _guardar() async {
@@ -488,6 +529,11 @@ class _FormularioScreenState extends State<FormularioScreen>
         final apagado   = _formData['bomba_${bomba.id}_apagado'];
         final horIni    = _formData['bomba_${bomba.id}_horometro_inicial'];
         final horFin    = _formData['bomba_${bomba.id}_horometro_final'];
+        final encIso = _formData['bomba_${bomba.id}_encendido_iso']
+            ?? _horaAIso(encendido, esSiguienteDia: false);
+        final apaIso = _formData['bomba_${bomba.id}_apagado_iso']
+            ?? _horaAIso(apagado, esSiguienteDia:
+            _formData['bomba_${bomba.id}_apagado_siguiente_dia'] == '1');
         if (encendido != null && apagado != null) {
           bombeos.add({
             'bomba_id':          bomba.id,
@@ -1049,9 +1095,7 @@ class _FormularioScreenState extends State<FormularioScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   //  PASOS
-  // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildInspeccionStep() {
     return _buildStepContainer(
@@ -1465,6 +1509,7 @@ class _FormularioScreenState extends State<FormularioScreen>
                           '${t.minute.toString().padLeft(2, '0')}';
                       setState(() {
                         _formData[encKey] = val;
+                        _formData.remove('bomba_${bomba.id}_encendido_iso');
                         _getController(encKey).text = val;
                       });
                     }
@@ -1497,8 +1542,8 @@ class _FormularioScreenState extends State<FormularioScreen>
                       final display = diaSig ? '$horaStr (+1d)' : horaStr;
                       setState(() {
                         _formData[apaKey] = horaStr;
-                        _formData['bomba_${bomba.id}_apagado_siguiente_dia'] =
-                        diaSig ? '1' : '0';
+                        _formData.remove('bomba_${bomba.id}_apagado_iso');
+                        _formData['bomba_${bomba.id}_apagado_siguiente_dia'] = diaSig ? '1' : '0';
                         _getController(apaKey).text = display;
                       });
                     }
@@ -1766,15 +1811,22 @@ class _FormularioScreenState extends State<FormularioScreen>
                 ),
               );
               if (pickedTime == null) return;
-              final formatted =
+              final isoFormatted =
                   '${pickedDate.year}-'
                   '${pickedDate.month.toString().padLeft(2, '0')}-'
                   '${pickedDate.day.toString().padLeft(2, '0')}T'
                   '${pickedTime.hour.toString().padLeft(2, '0')}:'
                   '${pickedTime.minute.toString().padLeft(2, '0')}:00';
+              final displayFormatted =
+                  '${pickedDate.day.toString().padLeft(2, '0')}/'
+                  '${pickedDate.month.toString().padLeft(2, '0')}/'
+                  '${pickedDate.year}  '
+                  '${pickedTime.hour.toString().padLeft(2, '0')}:'
+                  '${pickedTime.minute.toString().padLeft(2, '0')}';
               setState(() {
-                _formData['HORA_FINAL'] = formatted;
-                _getController('HORA_FINAL').text = formatted;
+                _formData['HORA_INICIAL'] = isoFormatted;
+                _formData['HORA_INICIAL_DISPLAY'] = displayFormatted;
+                _getController('HORA_INICIAL').text = displayFormatted;
               });
             },
           ),

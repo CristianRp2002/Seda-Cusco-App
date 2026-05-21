@@ -87,8 +87,8 @@ class DetalleBombeoModel {
   final String? bombaId;
   final String? nombreBomba;
   final double horasBombeo;
-  final String? encendido;
-  final String? apagado;
+  final DateTime? encendido;
+  final DateTime? apagado;
   final double? horometroInicial;
   final double? horometroFinal;
 
@@ -107,8 +107,12 @@ class DetalleBombeoModel {
       bombaId: json['bomba']?['id']?.toString(),
       nombreBomba: json['bomba']?['nombre']?.toString(),
       horasBombeo: double.tryParse(json['horas_bombeo']?.toString() ?? '0') ?? 0,
-      encendido: json['encendido']?.toString(),
-      apagado: json['apagado']?.toString(),
+      encendido: json['encendido'] != null
+          ? DateTime.tryParse(json['encendido'].toString())
+          : null,
+      apagado: json['apagado'] != null
+          ? DateTime.tryParse(json['apagado'].toString())
+          : null,
       horometroInicial: double.tryParse(json['horometro_inicial']?.toString() ?? ''),
       horometroFinal: double.tryParse(json['horometro_final']?.toString() ?? ''),
     );
