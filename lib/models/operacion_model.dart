@@ -7,6 +7,7 @@ class OperacionModel {
   final String interruptorLlegada10kvEstado;
   final double? transformadorTemperatura;
   final String estado;
+  final int? cambiosRealizados;
   final EstacionResumen estacion;
   final List<OperadorModel> operadores;
   final List<DetalleBombeoModel> detallesBombeo;
@@ -22,13 +23,15 @@ class OperacionModel {
     required this.interruptorLlegada10kvEstado,
     this.transformadorTemperatura,
     this.estado = 'INICIAL',
+    this.cambiosRealizados = 0,
     required this.estacion,
     required this.operadores,
     required this.detallesBombeo,
     required this.lecturaInicial,
     required this.lecturaFinal,
-
   });
+
+  bool get esCompleto => estado == 'COMPLETO';
 
   factory OperacionModel.fromJson(Map<String, dynamic> json) {
     print('JSON OPERACION:');
@@ -41,6 +44,8 @@ class OperacionModel {
       produccionCalculada: double.tryParse(json['produccion_calculada']?.toString() ?? '0') ?? 0,
       interruptorLlegada10kvEstado: json['interruptor_llegada_10kv_estado']?.toString() ?? '',
       transformadorTemperatura: double.tryParse(json['transformador_temperatura']?.toString() ?? ''),
+      estado: json['estado']?.toString() ?? 'INICIAL',
+      cambiosRealizados: json['cambios_realizados']?.toInt() ?? 0,
       lecturaInicial: LecturaModel.fromJson(json['lectura_inicial']),
       lecturaFinal: LecturaModel.fromJson(json['lectura_final']),
       estacion: EstacionResumen.fromJson(json['estacion'] ?? {}),
@@ -52,7 +57,40 @@ class OperacionModel {
           .toList(),
     );
   }
-  bool get esCompleto => estado == 'COMPLETO';
+
+  OperacionModel copyWith({
+    String? id,
+    DateTime? fechaFolio,
+    double? totalizadorInicial,
+    double? totalizadorFinal,
+    double? produccionCalculada,
+    String? interruptorLlegada10kvEstado,
+    double? transformadorTemperatura,
+    String? estado,
+    int? cambiosRealizados,
+    EstacionResumen? estacion,
+    List<OperadorModel>? operadores,
+    List<DetalleBombeoModel>? detallesBombeo,
+    LecturaModel? lecturaInicial,
+    LecturaModel? lecturaFinal,
+  }) {
+    return OperacionModel(
+      id: id ?? this.id,
+      fechaFolio: fechaFolio ?? this.fechaFolio,
+      totalizadorInicial: totalizadorInicial ?? this.totalizadorInicial,
+      totalizadorFinal: totalizadorFinal ?? this.totalizadorFinal,
+      produccionCalculada: produccionCalculada ?? this.produccionCalculada,
+      interruptorLlegada10kvEstado: interruptorLlegada10kvEstado ?? this.interruptorLlegada10kvEstado,
+      transformadorTemperatura: transformadorTemperatura ?? this.transformadorTemperatura,
+      estado: estado ?? this.estado,
+      cambiosRealizados: cambiosRealizados ?? this.cambiosRealizados,
+      estacion: estacion ?? this.estacion,
+      operadores: operadores ?? this.operadores,
+      detallesBombeo: detallesBombeo ?? this.detallesBombeo,
+      lecturaInicial: lecturaInicial ?? this.lecturaInicial,
+      lecturaFinal: lecturaFinal ?? this.lecturaFinal,
+    );
+  }
 }
 
 class EstacionResumen {
@@ -118,6 +156,7 @@ class DetalleBombeoModel {
     );
   }
 }
+
 class LecturaModel {
   final String? horaRegistro;
   final double? nivelCisterna;
@@ -140,19 +179,15 @@ class LecturaModel {
 
     return LecturaModel(
       horaRegistro: json['hora_registro']?.toString(),
-
       nivelCisterna: double.tryParse(
         json['nivel_cisterna']?.toString() ?? '',
       ),
-
       presionLinea: double.tryParse(
         json['presion_linea']?.toString() ?? '',
       ),
-
       presionJatunHuaylla: double.tryParse(
         json['presion_jatun_huaylla']?.toString() ?? '',
       ),
-
       totalizador: double.tryParse(
         json['totalizador']?.toString() ?? '',
       ),

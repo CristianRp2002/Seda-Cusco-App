@@ -45,7 +45,7 @@ class OperacionService {
     }
   }
 
-  // ── LISTAR OPERACIONES ────────────────────────────────────────────────────
+  // ── LISTAR OPERACIONES
   static Future<List<OperacionModel>> getOperaciones({
     required String token,
     String? mes,
@@ -81,7 +81,6 @@ class OperacionService {
       return [];
     }
   }
-  // ── OBTENER ESTACIÓN POR ID ───────────────────────────────────────────────
   static Future<EstacionModel?> getEstacion({
     required String token,
     required String estacionId,
@@ -102,6 +101,33 @@ class OperacionService {
       }
     } catch (e) {
       debugPrint('❌ Excepción en getEstacion: $e');
+      return null;
+    }
+  }
+  static Future<OperacionModel?> updateOperacion({
+    required String token,
+    required String operacionId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.operaciones}/$operacionId');
+
+      final response = await http.patch(
+        uri,
+        headers: ApiConfig.headers(token: token),
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
+        debugPrint('✅ Operación actualizada exitosamente');
+        final data = jsonDecode(response.body);
+        return OperacionModel.fromJson(data);
+      } else {
+        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('❌ Excepción en updateOperacion: $e');
       return null;
     }
   }
